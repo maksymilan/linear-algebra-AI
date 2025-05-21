@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能答疑 - AI助教平台</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <img src="img/logo.svg" alt="AI助教" width="40" height="40" class="d-inline-block align-text-top me-2">
+                <span class="fw-bold text-primary">AI助教平台</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav mx-auto">
+                    <li class="nav-item">
+                        <a class="nav-link fw-semibold" href="index.html">首页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active fw-semibold" href="qa.html">问答</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-semibold" href="assignment.html">作业</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-semibold" href="knowledge.html">知识库</a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <div class="dropdown me-3">
+                        <a href="#" class="position-relative" role="button" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-bell fs-5 text-secondary"></i>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                3
+                            </span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end p-3 shadow-sm" style="width: 300px;">
+                            <h6 class="dropdown-header fw-bold">通知</h6>
+                            <li><a class="dropdown-item py-2" href="#">您有一项作业已被批改</a></li>
+                            <li><a class="dropdown-item py-2" href="#">数学老师回复了您的问题</a></li>
+                            <li><a class="dropdown-item py-2" href="#">新作业: 高数第三章习题</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-center" href="#">查看全部通知</a></li>
+                        </ul>
+                    </div>
+                    <div class="dropdown">
+                        <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <img src="https://via.placeholder.com/40" alt="用户头像" width="40" height="40" class="rounded-circle me-2">
+                            <span class="fw-semibold text-dark d-none d-md-block">张同学</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>个人资料</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>设置</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-sign-out-alt me-2"></i>退出</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="container my-4">
+        <div class="row g-4">
+            <!-- 左侧边栏：问题历史 -->
+            <div class="col-md-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-0">
+                            <i class="fas fa-history me-2 text-primary"></i>历史提问
+                        </h5>
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="tooltip" title="开始新对话">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="p-3">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-end-0">
+                                    <i class="fas fa-search text-muted"></i>
+                                </span>
+                                <input type="text" class="form-control border-start-0" placeholder="搜索历史问题...">
+                            </div>
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item p-3 active">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1 fw-semibold text-truncate" style="max-width: 180px;">如何求解这个二阶微分方程？</h6>
+                                        <small class="text-white-50">今天 10:25</small>
+                                    </div>
+                                    <span class="badge bg-success">已回答</span>
+                                </div>
+                            </li>
+                            <li class="list-group-item p-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1 fw-semibold text-truncate" style="max-width: 180px;">傅里叶变换的物理意义是什么？</h6>
+                                        <small class="text-muted">昨天 15:40</small>
+                                    </div>
+                                    <span class="badge bg-info">教师回复</span>
+                                </div>
+                            </li>
+                            <li class="list-group-item p-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1 fw-semibold text-truncate" style="max-width: 180px;">矩阵特征值的计算方法</h6>
+                                        <small class="text-muted">4月10日 09:15</small>
+                                    </div>
+                                    <span class="badge bg-success">已回答</span>
+                                </div>
+                            </li>
+                            <li class="list-group-item p-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1 fw-semibold text-truncate" style="max-width: 180px;">牛顿第二定律的应用题</h6>
+                                        <small class="text-muted">4月8日 14:22</small>
+                                    </div>
+                                    <span class="badge bg-success">已回答</span>
+                                </div>
+                            </li>
+                            <li class="list-group-item p-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1 fw-semibold text-truncate" style="max-width: 180px;">泰勒级数展开的收敛条件</h6>
+                                        <small class="text-muted">4月5日 16:05</small>
+                                    </div>
+                                    <span class="badge bg-success">已回答</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧主区域：问答对话 -->
+            <div class="col-md-9">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white py-3">
+                        <ul class="nav nav-tabs card-header-tabs border-0">
+                            <li class="nav-item">
+                                <a class="nav-link active fw-semibold" href="#">
+                                    <i class="fas fa-robot me-2"></i>AI 答疑
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link fw-semibold" href="#">
+                                    <i class="fas fa-user-tie me-2"></i>教师答疑
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="chat-container p-3">
+                            <!-- 聊天记录 -->
+                            <div class="message-list p-2" id="message-list">
+                                <div class="d-flex justify-content-center mb-4">
+                                    <span class="badge bg-light text-dark py-2 px-3">今天 10:25</span>
+                                </div>
+                                
+                                <div class="message message-student">
+                                    <p class="mb-0">如何求解这个二阶微分方程？</p>
+                                </div>
+                                
+                                <div class="message message-student">
+                                    <img src="https://via.placeholder.com/500x300?text=Differential+Equation" class="img-fluid rounded mb-2" alt="微分方程图片">
+                                </div>
+                                
+                                <div class="message message-ai">
+                                    <p class="mb-0">
+                                        解二阶微分方程通常有以下步骤：<br>
+                                        1. 确定方程类型（线性、非线性等）<br>
+                                        2. 对于线性方程，寻找通解和特解<br>
+                                        3. 应用初始条件<br><br>
+                                        从您提供的图片来看，这是一个二阶常系数非齐次线性微分方程。
+                                        
+                                        对于方程 y'' + 4y' + 3y = 2e^(-x)，我们可以这样解：
+                                        
+                                        <strong>步骤1：</strong> 求对应的齐次方程 y'' + 4y' + 3y = 0 的通解。<br>
+                                        特征方程：r² + 4r + 3 = 0<br>
+                                        解得：r₁ = -1, r₂ = -3<br>
+                                        所以齐次方程的通解为：y_c = C₁e^(-x) + C₂e^(-3x)
+                                    </p>
+                                    <div class="mt-3">
+                                        <button class="btn btn-sm btn-outline-primary me-2">继续解析</button>
+                                        <button class="btn btn-sm btn-outline-secondary me-2">相关知识点</button>
+                                        <div class="mt-2">
+                                            <button class="btn btn-sm btn-outline-success me-1"><i class="fas fa-thumbs-up me-1"></i>有帮助</button>
+                                            <button class="btn btn-sm btn-outline-danger me-1"><i class="fas fa-thumbs-down me-1"></i>没帮助</button>
+                                            <button class="btn btn-sm btn-outline-info">转教师答疑</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="message message-student">
+                                    <p class="mb-0">请继续解析后面的步骤。</p>
+                                </div>
+                                
+                                <div class="message message-ai">
+                                    <p class="mb-0">
+                                        <strong>步骤2：</strong> 求特解。因为右边是 2e^(-x)，且 r = -1 是特征方程的根，所以我们需要使用待定系数法，设特解形式为：<br>
+                                        y_p = A·x·e^(-x)<br><br>
+                                        代入原方程：<br>
+                                        y_p = A·x·e^(-x)<br>
+                                        y_p' = A·e^(-x) - A·x·e^(-x)<br>
+                                        y_p'' = -A·e^(-x) - A·e^(-x) + A·x·e^(-x) = -2A·e^(-x) + A·x·e^(-x)<br><br>
+                                        
+                                        将特解及其导数代入原方程：<br>
+                                        (-2A·e^(-x) + A·x·e^(-x)) + 4(A·e^(-x) - A·x·e^(-x)) + 3(A·x·e^(-x)) = 2e^(-x)<br>
+                                        
+                                        整理得：<br>
+                                        (-2A + 4A)·e^(-x) + (A - 4A + 3A)·x·e^(-x) = 2e^(-x)<br>
+                                        2A·e^(-x) + 0·x·e^(-x) = 2e^(-x)<br>
+                                        
+                                        所以 2A = 2，解得 A = 1<br>
+                                        
+                                        特解为：y_p = x·e^(-x)
+                                    </p>
+                                    <div class="mt-3">
+                                        <button class="btn btn-sm btn-outline-primary me-2">继续解析</button>
+                                        <button class="btn btn-sm btn-outline-secondary me-2">相关知识点</button>
+                                        <div class="mt-2">
+                                            <button class="btn btn-sm btn-outline-success me-1"><i class="fas fa-thumbs-up me-1"></i>有帮助</button>
+                                            <button class="btn btn-sm btn-outline-danger me-1"><i class="fas fa-thumbs-down me-1"></i>没帮助</button>
+                                            <button class="btn btn-sm btn-outline-info">转教师答疑</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 提问输入框 -->
+                            <div class="mt-3 border-top pt-3">
+                                <form id="qa-form">
+                                    <div class="d-flex">
+                                        <div class="input-group me-2">
+                                            <button class="btn btn-outline-secondary border-end-0 bg-white" type="button" id="image-button">
+                                                <i class="fas fa-image"></i>
+                                            </button>
+                                            <input type="file" id="image-upload" class="d-none" accept="image/*">
+                                            <input type="text" class="form-control" id="question-input" placeholder="输入您的问题...">
+                                            <button class="btn btn-primary" type="submit">
+                                                <i class="fas fa-paper-plane"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 图片预览区 -->
+                                    <div id="preview-container" class="mt-2 d-none">
+                                        <div class="position-relative d-inline-block">
+                                            <img id="image-preview" class="img-thumbnail" style="max-height: 150px;" alt="预览图">
+                                            <button type="button" id="remove-preview" class="btn btn-sm btn-danger position-absolute top-0 end-0 rounded-circle" style="margin: -10px;">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-light mt-5 py-4">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <a class="d-flex align-items-center mb-3 text-decoration-none" href="index.html">
+                        <img src="img/logo.svg" alt="AI助教" width="40" height="40" class="me-2">
+                        <span class="fw-bold text-primary fs-5">AI助教平台</span>
+                    </a>
+                    <p class="text-muted">AI驱动的智能教学平台，为学习提供全方位支持</p>
+                </div>
+                <div class="col-md-2">
+                    <h5 class="fw-bold mb-3">功能</h5>
+                    <ul class="nav flex-column">
+                        <li class="nav-item mb-2"><a href="qa.html" class="nav-link p-0 text-muted">智能答疑</a></li>
+                        <li class="nav-item mb-2"><a href="assignment.html" class="nav-link p-0 text-muted">作业批改</a></li>
+                        <li class="nav-item mb-2"><a href="knowledge.html" class="nav-link p-0 text-muted">知识库</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-2">
+                    <h5 class="fw-bold mb-3">支持</h5>
+                    <ul class="nav flex-column">
+                        <li class="nav-item mb-2"><a href="#" class="nav-link p-0 text-muted">帮助中心</a></li>
+                        <li class="nav-item mb-2"><a href="#" class="nav-link p-0 text-muted">使用指南</a></li>
+                        <li class="nav-item mb-2"><a href="#" class="nav-link p-0 text-muted">联系我们</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h5 class="fw-bold mb-3">联系我们</h5>
+                    <p class="text-muted mb-2">有任何问题或建议，请随时联系我们</p>
+                    <p class="d-flex align-items-center mb-2">
+                        <i class="fas fa-envelope me-2 text-primary"></i>
+                        <a href="mailto:support@aitutor.com" class="text-muted">support@aitutor.com</a>
+                    </p>
+                    <p class="d-flex align-items-center mb-2">
+                        <i class="fas fa-phone me-2 text-primary"></i>
+                        <span class="text-muted">400-123-4567</span>
+                    </p>
+                </div>
+            </div>
+            <div class="d-flex justify-content-between py-4 mt-3 border-top">
+                <p class="text-muted">© 2023 AI助教平台. 保留所有权利.</p>
+                <ul class="list-unstyled d-flex">
+                    <li class="ms-3"><a class="text-muted" href="#"><i class="fab fa-weixin fs-5"></i></a></li>
+                    <li class="ms-3"><a class="text-muted" href="#"><i class="fab fa-qq fs-5"></i></a></li>
+                    <li class="ms-3"><a class="text-muted" href="#"><i class="fab fa-weibo fs-5"></i></a></li>
+                </ul>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        // Connect file input to button
+        document.getElementById('image-button').addEventListener('click', function() {
+            document.getElementById('image-upload').click();
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作业管理 - AI助教平台</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <img src="img/logo.svg" alt="AI助教" width="40" height="40" class="d-inline-block align-text-top me-2">
+                <span class="fw-bold text-primary">AI助教平台</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav mx-auto">
+                    <li class="nav-item">
+                        <a class="nav-link fw-semibold" href="index.html">首页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-semibold" href="qa.html">问答</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active fw-semibold" href="assignment.html">作业</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-semibold" href="knowledge.html">知识库</a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <div class="dropdown me-3">
+                        <a href="#" class="position-relative" role="button" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-bell fs-5 text-secondary"></i>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                3
+                            </span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end p-3 shadow-sm" style="width: 300px;">
+                            <h6 class="dropdown-header fw-bold">通知</h6>
+                            <li><a class="dropdown-item py-2" href="#">您有一项作业已被批改</a></li>
+                            <li><a class="dropdown-item py-2" href="#">数学老师回复了您的问题</a></li>
+                            <li><a class="dropdown-item py-2" href="#">新作业: 高数第三章习题</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-center" href="#">查看全部通知</a></li>
+                        </ul>
+                    </div>
+                    <div class="dropdown">
+                        <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <img src="https://via.placeholder.com/40" alt="用户头像" width="40" height="40" class="rounded-circle me-2">
+                            <span class="fw-semibold text-dark d-none d-md-block">张同学</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>个人资料</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>设置</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-sign-out-alt me-2"></i>退出</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="container my-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold">作业管理</h2>
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-secondary active">学生视图</button>
+                <button type="button" class="btn btn-outline-secondary">教师视图</button>
+            </div>
+        </div>
+
+        <!-- 标签页导航 -->
+        <ul class="nav nav-tabs mb-4" id="assignment-tabs">
+            <li class="nav-item">
+                <a class="nav-link active assignment-tab fw-semibold" data-bs-toggle="tab" data-bs-target="#todo-tab" href="#">
+                    <i class="fas fa-clipboard-list me-2"></i>待完成
+                    <span class="badge bg-danger ms-2">2</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link assignment-tab fw-semibold" data-bs-toggle="tab" data-bs-target="#pending-tab" href="#">
+                    <i class="fas fa-hourglass-half me-2"></i>待批改
+                    <span class="badge bg-warning ms-2">1</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link assignment-tab fw-semibold" data-bs-toggle="tab" data-bs-target="#graded-tab" href="#">
+                    <i class="fas fa-check-circle me-2"></i>已批改
+                    <span class="badge bg-success ms-2">3</span>
+                </a>
+            </li>
+        </ul>
+
+        <!-- 标签页内容 -->
+        <div class="tab-content">
+            <!-- 待完成作业标签页 -->
+            <div class="tab-pane fade show active" id="todo-tab">
+                <div class="row g-4">
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm hover-card">
+                            <div class="card-header bg-white py-3 d-flex align-items-center">
+                                <span class="assignment-status status-pending"></span>
+                                <h5 class="card-title fw-bold mb-0 ms-2">高等数学第三章习题</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <span class="badge bg-warning">后天截止</span>
+                                    <small class="text-muted">4月15日发布</small>
+                                </div>
+                                <p class="card-text text-secondary mb-4">本次作业涵盖微分方程基础知识，包括一阶微分方程、二阶常系数微分方程等内容。</p>
+                                <div class="d-flex align-items-center mb-3">
+                                    <img src="https://via.placeholder.com/30" alt="教师头像" class="rounded-circle me-2">
+                                    <span class="text-muted">陈老师</span>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-white border-0 d-grid">
+                                <button class="btn btn-primary" onclick="startAssignment(1)">开始作业</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm hover-card border-danger">
+                            <div class="card-header bg-white py-3 d-flex align-items-center">
+                                <span class="assignment-status status-pending"></span>
+                                <h5 class="card-title fw-bold mb-0 ms-2">线性代数期中模拟试题</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <span class="badge bg-danger">今日截止</span>
+                                    <small class="text-muted">4月10日发布</small>
+                                </div>
+                                <p class="card-text text-secondary mb-4">本次作业涵盖线性代数基础知识，包括线性空间、线性变换、特征值和特征向量等内容。</p>
+                                <div class="d-flex align-items-center mb-3">
+                                    <img src="https://via.placeholder.com/30" alt="教师头像" class="rounded-circle me-2">
+                                    <span class="text-muted">刘老师</span>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-white border-0 d-grid">
+                                <button class="btn btn-danger" onclick="startAssignment(2)">紧急完成</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 待批改作业标签页 -->
+            <div class="tab-pane fade" id="pending-tab">
+                <div class="row g-4">
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm hover-card">
+                            <div class="card-header bg-white py-3 d-flex align-items-center">
+                                <span class="assignment-status status-pending"></span>
+                                <h5 class="card-title fw-bold mb-0 ms-2">物理实验报告</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <span class="badge bg-info">已提交</span>
+                                    <small class="text-muted">4月12日提交</small>
+                                </div>
+                                <p class="card-text text-secondary mb-4">测量重力加速度实验报告，包括实验原理、过程、数据分析与结论。</p>
+                                <div class="d-flex align-items-center mb-3">
+                                    <img src="https://via.placeholder.com/30" alt="教师头像" class="rounded-circle me-2">
+                                    <span class="text-muted">王老师</span>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-white border-0 d-grid">
+                                <button class="btn btn-outline-secondary" disabled>等待批改</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 已批改作业标签页 -->
+            <div class="tab-pane fade" id="graded-tab">
+                <div class="row g-4">
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm hover-card">
+                            <div class="card-header bg-white py-3 d-flex align-items-center">
+                                <span class="assignment-status status-graded"></span>
+                                <h5 class="card-title fw-bold mb-0 ms-2">概率论基础题目</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <span class="badge bg-success">已批改</span>
+                                    <small class="text-muted">4月8日批改</small>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div>
+                                        <p class="mb-0 text-muted">得分</p>
+                                        <h4 class="fw-bold text-success mb-0">92<span class="fs-6">/100</span></h4>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-light text-dark py-2 px-3">
+                                            <i class="fas fa-exclamation-circle text-warning me-1"></i>
+                                            3个错题待分析
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <img src="https://via.placeholder.com/30" alt="教师头像" class="rounded-circle me-2">
+                                    <span class="text-muted">林老师</span>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-white border-0 d-grid">
+                                <a href="assignment-detail.html" class="btn btn-outline-primary">查看详情</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm hover-card">
+                            <div class="card-header bg-white py-3 d-flex align-items-center">
+                                <span class="assignment-status status-graded"></span>
+                                <h5 class="card-title fw-bold mb-0 ms-2">微积分期中测验</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <span class="badge bg-success">已批改</span>
+                                    <small class="text-muted">4月5日批改</small>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div>
+                                        <p class="mb-0 text-muted">得分</p>
+                                        <h4 class="fw-bold text-success mb-0">85<span class="fs-6">/100</span></h4>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-light text-dark py-2 px-3">
+                                            <i class="fas fa-exclamation-circle text-warning me-1"></i>
+                                            5个错题待分析
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <img src="https://via.placeholder.com/30" alt="教师头像" class="rounded-circle me-2">
+                                    <span class="text-muted">陈老师</span>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-white border-0 d-grid">
+                                <a href="assignment-detail.html" class="btn btn-outline-primary">查看详情</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-light mt-5 py-4">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <a class="d-flex align-items-center mb-3 text-decoration-none" href="index.html">
+                        <img src="img/logo.svg" alt="AI助教" width="40" height="40" class="me-2">
+                        <span class="fw-bold text-primary fs-5">AI助教平台</span>
+                    </a>
+                    <p class="text-muted">AI驱动的智能教学平台，为学习提供全方位支持</p>
+                </div>
+                <div class="col-md-2">
+                    <h5 class="fw-bold mb-3">功能</h5>
+                    <ul class="nav flex-column">
+                        <li class="nav-item mb-2"><a href="qa.html" class="nav-link p-0 text-muted">智能答疑</a></li>
+                        <li class="nav-item mb-2"><a href="assignment.html" class="nav-link p-0 text-muted">作业批改</a></li>
+                        <li class="nav-item mb-2"><a href="knowledge.html" class="nav-link p-0 text-muted">知识库</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-2">
+                    <h5 class="fw-bold mb-3">支持</h5>
+                    <ul class="nav flex-column">
+                        <li class="nav-item mb-2"><a href="#" class="nav-link p-0 text-muted">帮助中心</a></li>
+                        <li class="nav-item mb-2"><a href="#" class="nav-link p-0 text-muted">使用指南</a></li>
+                        <li class="nav-item mb-2"><a href="#" class="nav-link p-0 text-muted">联系我们</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h5 class="fw-bold mb-3">联系我们</h5>
+                    <p class="text-muted mb-2">有任何问题或建议，请随时联系我们</p>
+                    <p class="d-flex align-items-center mb-2">
+                        <i class="fas fa-envelope me-2 text-primary"></i>
+                        <a href="mailto:support@aitutor.com" class="text-muted">support@aitutor.com</a>
+                    </p>
+                    <p class="d-flex align-items-center mb-2">
+                        <i class="fas fa-phone me-2 text-primary"></i>
+                        <span class="text-muted">400-123-4567</span>
+                    </p>
+                </div>
+            </div>
+            <div class="d-flex justify-content-between py-4 mt-3 border-top">
+                <p class="text-muted">© 2023 AI助教平台. 保留所有权利.</p>
+                <ul class="list-unstyled d-flex">
+                    <li class="ms-3"><a class="text-muted" href="#"><i class="fab fa-weixin fs-5"></i></a></li>
+                    <li class="ms-3"><a class="text-muted" href="#"><i class="fab fa-qq fs-5"></i></a></li>
+                    <li class="ms-3"><a class="text-muted" href="#"><i class="fab fa-weibo fs-5"></i></a></li>
+                </ul>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html> 
