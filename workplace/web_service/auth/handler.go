@@ -38,10 +38,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// 检查用户名或邮箱是否已存在
+	// 检查用户ID或邮箱是否已存在
 	var existingUser User
-	if h.DB.Where("username = ? OR email = ?", req.Username, req.Email).First(&existingUser).Error == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "Username or email already exists"})
+	if h.DB.Where("user_id_no = ? OR email = ?", req.UserIDNo, req.Email).First(&existingUser).Error == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "UserID or Email already exists"})
 		return
 	}
 

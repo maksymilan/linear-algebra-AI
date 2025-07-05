@@ -23,23 +23,4 @@ docker run --name LA-AI \
 psql -h localhost -p 5432 -U postgres -d LA-DB
 ```
 
-### 创建表
-#### 用户表
-```sql
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    user_id_no VARCHAR(255) UNIQUE NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    role VARCHAR(50) NOT NULL DEFAULT 'student', -- 'student' or 'teacher'
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-```
-#### 验证码表
-```sql
-CREATE TABLE verification_codes (
-    id SERIAL PRIMARY KEY,
-    email VARCHAR(255) NOT NULL,
-    code VARCHAR(10) NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL
-);
-```
+
