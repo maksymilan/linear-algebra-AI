@@ -4,6 +4,9 @@ go get github.com/gin-contrib/cors # 安装 CORS 中间件
 go get github.com/jackc/pgx/v5
 go get github.com/joho/godotenv
 go get github.com/jackc/pgx/v5/pgxpool@v5.7.5
+go get github.com/golang-jwt/jwt/v5
+go get github.com/sendgrid/sendgrid-go
+go get github.com/sendgrid/sendgrid-go
 
 运行
 ```bash
