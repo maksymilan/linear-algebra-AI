@@ -7,26 +7,26 @@ import (
 	"net/http"
 
 	"workplace/web_service/auth"
-	"workplace/web_service/config" // 导入我们自己的 config 包
+	"workplace/web_service/config"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	// --- 1. Connect to Database ---
-	dbpool := config.ConnectDB()
-	defer dbpool.Close()
+	// --- 1. 使用 GORM 连接到数据库 ---
+	db := config.ConnectDB()
 
-	// --- 2. Setup Gin Router ---
+	// --- 2. 设置 Gin 路由器 ---
 	r := gin.Default()
+
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowOrigins = []string{"http://localhost:3000", "http://localhost:5173"}
 	r.Use(cors.New(corsConfig))
 
-	authHandler := &auth.AuthHandler{DB: dbpool}
-	// --- 3. Define Routes ---
+	authHandler := &auth.AuthHandler{DB: db}
 
+	// --- 3. 定义API路由 ---
 	api := r.Group("/api")
 	{
 		api.GET("/ping", func(c *gin.Context) {
@@ -44,9 +44,19 @@ func main() {
 			c.Data(http.StatusOK, "application/json", body)
 		})
 
-		// --- Database Health Check Route ---
+		// 数据库健康检查路由
 		api.GET("/health/db", func(c *gin.Context) {
-			err := dbpool.Ping(context.Background())
+			sqlDB, err := db.DB()
+			if err != nil {
+				log.Printf("Failed to get generic database object from GORM: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"status":  "error",
+					"message": "Failed to get database object",
+				})
+				return
+			}
+
+			err = sqlDB.PingContext(context.Background())
 			if err != nil {
 				log.Printf("Database connection error: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{
@@ -61,16 +71,16 @@ func main() {
 				"message": "Database connection is healthy",
 			})
 		})
-		// 更新后的认证路由
+
+		// 用户名/密码认证路由
 		authRoutes := api.Group("/auth")
 		{
-			authRoutes.POST("/send-code", authHandler.SendCode)
-			authRoutes.POST("/verify", authHandler.Verify)
+			authRoutes.POST("/register", authHandler.Register)
+			authRoutes.POST("/login", authHandler.Login)
 		}
-
-		// ... 其他路由保持不变 ...
 	}
 
-	// --- 4. Start Server ---
+	// --- 4. 启动服务器 ---
+	log.Println("Starting server on port :8080")
 	r.Run(":8080")
 }
