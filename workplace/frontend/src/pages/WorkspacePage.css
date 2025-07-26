@@ -1,0 +1,132 @@
+/* --- 整体布局 --- */
+.workspace-container {
+    display: flex;
+    flex-direction: row;
+    height: 100vh;
+    width: 100vw; /* 占满整个视口宽度 */
+    max-width: none;
+    padding: 0;
+    margin: 0;
+    background-color: #1e1e1e;
+    position: fixed; /* 固定位置，防止滚动 */
+    top: 0;
+    left: 0;
+}
+
+.qa-panel {
+    width: 40%;
+    min-width: 400px; /* 保证问答区域最小宽度 */
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    border-right: 2px solid #333;
+    background-color: #252526;
+}
+
+.visualization-panel {
+    flex-grow: 1;
+    height: 100%;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.placeholder-text {
+    color: #666;
+    font-size: 2rem;
+    user-select: none;
+}
+
+.logout-button {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 10;
+}
+
+/* --- 聊天UI样式 --- */
+.chat-window {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.messages-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.message {
+  padding: 10px 15px;
+  border-radius: 18px;
+  max-width: 85%;
+  word-wrap: break-word;
+  line-height: 1.4;
+}
+
+.user-message {
+  background-color: #007bff;
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.ai-message {
+  background-color: #3f3f3f;
+  color: #e0e0e0;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.message-form {
+    display: flex;
+    padding: 10px;
+    border-top: 1px solid #444;
+    align-items: center;
+    background-color: #252526;
+}
+
+.attach-button, .send-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    color: #a9a9a9;
+    flex-shrink: 0;
+}
+.attach-button:hover, .send-button:hover {
+    color: #ffffff;
+}
+
+.text-input {
+    flex-grow: 1;
+    padding: 10px;
+    border-radius: 20px;
+    border: 1px solid #555;
+    background-color: #1a1a1a;
+    color: white;
+    margin: 0 10px;
+}
+
+.file-preview-area {
+    padding: 5px 15px;
+    border-top: 1px solid #444;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    background-color: #252526;
+}
+
+.file-tag {
+    background-color: #3a3a3a;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    color: #ccc;
+}

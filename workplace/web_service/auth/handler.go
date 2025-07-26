@@ -16,10 +16,7 @@ type AuthHandler struct {
 	DB *gorm.DB
 }
 
-// --- 新的请求结构体 ---
-
 type RegisterRequest struct {
-	UserIDNo string `json:"user_id_no" binding:"required"`
 	Username string `json:"username" binding:"required,min=4"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
@@ -38,10 +35,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// 检查用户ID或邮箱是否已存在
+	// 检查用户名或邮箱是否已存在
 	var existingUser User
-	if h.DB.Where("user_id_no = ? OR email = ?", req.UserIDNo, req.Email).First(&existingUser).Error == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "UserID or Email already exists"})
+	if h.DB.Where("username = ? OR email = ?", req.Username, req.Email).First(&existingUser).Error == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Username or email already exists"})
 		return
 	}
 
@@ -54,7 +51,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	// 创建新用户
 	newUser := User{
-		UserIDNo:     req.UserIDNo,
 		Username:     req.Username,
 		Email:        req.Email,
 		PasswordHash: string(hashedPassword),

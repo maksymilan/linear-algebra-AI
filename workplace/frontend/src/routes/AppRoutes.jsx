@@ -21,6 +21,7 @@ export const AppRoutes = () => {
         } 
       />
       
+      
       {/* 移除 /login 路由，并让所有未匹配的路径都重定向到主页 */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
