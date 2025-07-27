@@ -1,109 +1,117 @@
-import React, { useState, useRef, useEffect } from 'react';
+// src/pages/WorkspacePage.jsx
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import MessageList from '../components/MessageList';
+import MessageInput from '../components/MessageInput';
+import ChatHistorySidebar from '../components/ChatHistorySidebar';
 import './WorkspacePage.css';
 
-// --- 图标组件 ---
-const PaperclipIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
-);
+// --- Icon Components ---
+const LogoutIcon = () => <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>;
+const PanelCollapseIcon = () => <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>;
+const PanelExpandIcon = () => <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 15v6h6M21 9V3h-6M3 9l7-7M21 15l-7 7"/></svg>;
 
-// 新增：用于“移除文件”按钮的小“X”图标
-const CloseIcon = ({ size = 14 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-    </svg>
-);
-
+// --- V V V 核心修改 1: 移除初始消息 V V V ---
+const initialChatId = `chat-${Date.now()}`;
+const initialChats = {
+  [initialChatId]: {
+    id: initialChatId,
+    title: "新的聊天",
+    messages: [] // messages 数组现在为空
+  }
+};
+// --- ^ ^ ^ 核心修改 1 ^ ^ ^ ---
 
 const WorkspacePage = () => {
-  const { logoutAction } = useAuth();
+  const { logoutAction, token, user } = useAuth();
   const navigate = useNavigate();
 
-  const [messages, setMessages] = useState([{ text: "你好！我是您的线性代数AI助教，请问有什么可以帮助您的吗？", sender: 'ai' }]);
+  const [chats, setChats] = useState(initialChats);
+  const [activeChatId, setActiveChatId] = useState(initialChatId);
   const [input, setInput] = useState('');
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [sidebarHover, setSidebarHover] = useState(false);
+  
+  const activeMessages = chats[activeChatId]?.messages || [];
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(scrollToBottom, [messages]);
-
-  // --- 关键修复点 1: 允许多次选择并累积文件 ---
-  const handleFileChange = (event) => {
-    // 将新选择的文件追加到现有的文件列表中
-    if (event.target.files) {
-        setFiles(prevFiles => [...prevFiles, ...Array.from(event.target.files)]);
+  // --- V V V 核心修改 3: 调整标题生成逻辑 V V V ---
+  useEffect(() => {
+    const activeChat = chats[activeChatId];
+    // 当消息数量为1（即用户发送了第一条消息后）且标题仍为默认值时
+    if (activeChat && activeChat.messages.length === 1 && activeChat.title === "新的聊天") {
+      const firstUserMessage = activeChat.messages[0].text;
+      const newTitle = firstUserMessage.substring(0, 30) + (firstUserMessage.length > 30 ? '...' : '');
+      setChats(prevChats => ({
+        ...prevChats,
+        [activeChatId]: { ...prevChats[activeChatId], title: newTitle }
+      }));
     }
-  };
+  }, [chats, activeChatId]);
+  // --- ^ ^ ^ 核心修改 3 ^ ^ ^ ---
 
-  // --- 关键修复点 2: 新增移除文件的功能 ---
-  const handleRemoveFile = (indexToRemove) => {
-    setFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
-  };
-
-  const handleSend = async (e) => {
-    e.preventDefault();
+  const handleSend = async () => {
     if ((input.trim() === '' && files.length === 0) || isLoading) return;
-
-    let userMessageContent = `<div>${input}</div>`;
-    if (files.length > 0) {
-        userMessageContent += "<div><strong>附件:</strong>";
-        files.forEach(file => { userMessageContent += ` ${file.name}`; });
-        userMessageContent += "</div>";
-    }
-    const userMessage = { text: userMessageContent, sender: 'user' };
-    setMessages(prev => [...prev, userMessage]);
-
+    const filesWithUrls = files.map(file => ({ file: file, name: file.name, url: URL.createObjectURL(file) }));
+    const userMessage = { text: input.trim(), sender: 'user', files: filesWithUrls };
+    setChats(prevChats => ({ ...prevChats, [activeChatId]: { ...prevChats[activeChatId], messages: [...prevChats[activeChatId].messages, userMessage] } }));
     const formData = new FormData();
     formData.append('prompt', input);
-    files.forEach(file => { formData.append('files', file); });
-
+    filesWithUrls.forEach(fileWrapper => { formData.append('files', fileWrapper.file); });
     setInput('');
     setFiles([]);
     setIsLoading(true);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = null;
-    }
-
     try {
-      const response = await axios.post(
-        'http://localhost:8080/api/chat/send',
-        formData,
-        { 
-            headers: { 'Content-Type': 'multipart/form-data' } 
-        }
-      );
-
-      let responseData = response.data;
-      if (typeof responseData === 'string') {
-          responseData = JSON.parse(responseData);
-      }
-
-      const aiMessageText = responseData.response;
-      if (aiMessageText) {
-        const aiMessage = { text: aiMessageText, sender: 'ai' };
-        setMessages(prev => [...prev, aiMessage]);
-      } else {
-        const errorMessage = { text: "收到了来自AI的意外响应格式。", sender: 'ai' };
-        setMessages(prev => [...prev, errorMessage]);
-      }
-
+      const response = await axios.post('http://localhost:8080/api/chat/send', formData, { headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` } });
+      const aiResponseData = response.data;
+      setChats(prevChats => {
+          let aiMessageText;
+          if (aiResponseData.response) aiMessageText = aiResponseData.response;
+          else if (aiResponseData.text_explanation) aiMessageText = aiResponseData.text_explanation;
+          else aiMessageText = "收到了无法解析的回复格式。";
+          const aiMessage = { text: aiMessageText, sender: 'ai' };
+          const currentMessages = prevChats[activeChatId].messages;
+          const lastUserMessage = currentMessages[currentMessages.length - 1];
+          if (lastUserMessage && lastUserMessage.files) { lastUserMessage.files.forEach(f => URL.revokeObjectURL(f.url)); }
+          return { ...prevChats, [activeChatId]: { ...prevChats[activeChatId], messages: [...currentMessages, aiMessage] } };
+      });
     } catch (error) {
       console.error("Error fetching AI response:", error);
-      const errorText = error.response?.data?.detail || "哎呀，出错了，请稍后再试。";
+      const errorText = error.response?.data?.error || error.response?.data?.detail || "哎呀，出错了，请稍后再试。";
       const errorMessage = { text: errorText, sender: 'ai' };
-      setMessages(prev => [...prev, errorMessage]);
+      setChats(prevChats => ({ ...prevChats, [activeChatId]: { ...prevChats[activeChatId], messages: [...prevChats[activeChatId].messages, errorMessage] } }));
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // --- V V V 核心修改 2: 新对话不包含初始消息 V V V ---
+  const handleNewChat = () => {
+      const newChatId = `chat-${Date.now()}`;
+      setChats(prevChats => ({
+          ...prevChats,
+          [newChatId]: {
+              id: newChatId,
+              title: "新的聊天",
+              messages: [] // 新对话的消息列表也为空
+          }
+      }));
+      setActiveChatId(newChatId);
+      setInput('');
+      setFiles([]);
+  };
+  // --- ^ ^ ^ 核心修改 2 ^ ^ ^ ---
+  
+  const handleSelectChat = (chatId) => {
+      setActiveChatId(chatId);
+  };
+  
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(prev => !prev);
   };
 
   const handleLogout = () => {
@@ -113,59 +121,60 @@ const WorkspacePage = () => {
 
   return (
     <div className="workspace-container">
+      <div 
+        className={`sidebar-wrapper ${isSidebarCollapsed && !sidebarHover ? 'collapsed' : ''}`}
+        onMouseEnter={() => { if (isSidebarCollapsed) setSidebarHover(true); }}
+        onMouseLeave={() => { if (isSidebarCollapsed) setSidebarHover(false); }}
+      >
+        <ChatHistorySidebar
+          chats={chats}
+          activeChatId={activeChatId}
+          onNewChat={handleNewChat}
+          onSelectChat={handleSelectChat}
+          isCollapsed={isSidebarCollapsed && !sidebarHover}
+          onToggle={toggleSidebar}
+        />
+      </div>
+
       <div className="qa-panel">
         <div className="chat-window">
-          <div className="messages-list">
-            {messages.map((msg, index) => (
-              <div key={index} className={`message ${msg.sender === 'user' ? 'user-message' : 'ai-message'}`}>
-                <div dangerouslySetInnerHTML={{ __html: msg.text }} />
-              </div>
-            ))}
-            {isLoading && (
-              <div className="message ai-message"><i>AI思考中...</i></div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-          
-          {/* --- 关键修复点 3: 更新文件预览UI，使其支持移除 --- */}
-          {files.length > 0 && (
-              <div className="file-preview-area">
-                  {files.map((file, i) => (
-                    <div key={i} className="file-tag">
-                        <span>{file.name}</span>
-                        <button onClick={() => handleRemoveFile(i)} className="remove-file-button">
-                            <CloseIcon />
-                        </button>
-                    </div>
-                  ))}
-              </div>
+          {/* --- V V V 核心修改 4: 调整欢迎界面显示条件 V V V --- */}
+          {activeMessages.length === 0 ? (
+            <div className="welcome-screen">
+              <div className="welcome-gradient-text">你好, {user?.displayName || user?.name || '用户'}</div>
+              <p className="welcome-subtitle">今天有什么可以帮您的吗？</p>
+            </div>
+          ) : (
+            <MessageList messages={activeMessages} isLoading={isLoading} user={user} />
           )}
-
-          <form className="message-form" onSubmit={handleSend}>
-            <button type="button" className="attach-button" onClick={() => fileInputRef.current.click()}>
-              <PaperclipIcon />
-            </button>
-            <input
-              type="file" multiple ref={fileInputRef} onChange={handleFileChange}
-              style={{ display: 'none' }} accept=".pdf,.txt,image/*"
-            />
-            <input
-              type="text" className="text-input" value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="输入您的问题，或上传文件..." disabled={isLoading}
-            />
-            <button type="submit" className="send-button" disabled={isLoading}>
-              {isLoading ? '...' : '发送'}
-            </button>
-          </form>
+          {/* --- ^ ^ ^ 核心修改 4 ^ ^ ^ --- */}
+          
+          <MessageInput
+            input={input}
+            setInput={setInput}
+            files={files}
+            setFiles={setFiles}
+            onSend={handleSend}
+            isLoading={isLoading}
+          />
         </div>
       </div>
-      <div id="canvas-container" className="visualization-panel">
-        <div className="placeholder-text">可视化区域</div>
+      
+      <div className={`visualization-panel ${isPanelCollapsed ? 'collapsed' : ''}`}>
+        <div className="panel-controls">
+            <button onClick={() => setIsPanelCollapsed(!isPanelCollapsed)} className="control-button" title={isPanelCollapsed ? "展开面板" : "收起面板"}>
+                {isPanelCollapsed ? <PanelExpandIcon /> : <PanelCollapseIcon />}
+            </button>
+            <button onClick={handleLogout} className="control-button" title="退出登录">
+                <LogoutIcon />
+            </button>
+        </div>
+        <div className="placeholder-text">
+            {isPanelCollapsed ? '' : '可视化区域'}
+        </div>
       </div>
-      <button onClick={handleLogout} className="logout-button">退出登录</button>
     </div>
   );
-}
+};
 
 export default WorkspacePage;

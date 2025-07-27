@@ -84,12 +84,19 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	displayName := user.DisplayName
+	if displayName == "" {
+		displayName = user.Username
+	}
+
 	// 生成JWT
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub":  user.ID,
-		"name": user.Username,
-		"role": user.Role,
-		"exp":  time.Now().Add(time.Hour * 24 * 7).Unix(),
+		"sub":         user.ID,
+		"name":        user.Username,
+		"role":        user.Role,
+		"displayName": displayName,    // 添加显示昵称
+		"avatarUrl":   user.AvatarURL, // 添加头像链接
+		"exp":         time.Now().Add(time.Hour * 24 * 7).Unix(),
 	})
 
 	jwtSecret := os.Getenv("JWT_SECRET")

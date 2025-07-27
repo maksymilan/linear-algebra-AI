@@ -1,0 +1,134 @@
+/* src/components/ChatHistorySidebar.css */
+.sidebar-container {
+    width: 100%;
+    height: 100%;
+    background-color: #f4f7f9;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* 强制隐藏所有溢出的内容 */
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+    flex-shrink: 0;
+}
+
+.sidebar-toggle-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #555;
+    padding: 8px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+.sidebar-toggle-button:hover {
+    background-color: #e9ecef;
+    color: #007bff;
+}
+
+.sidebar-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    color: #333;
+    white-space: nowrap; /* 确保标题不换行 */
+    overflow: hidden;    /* 配合容器的 overflow:hidden */
+    text-overflow: ellipsis;
+    transition: opacity 0.2s ease;
+}
+
+.new-chat-button {
+    background: #fff;
+    border: 1px solid #ddd;
+    color: #333;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.new-chat-button:hover {
+    border-color: #007bff;
+    color: #007bff;
+    transform: scale(1.05) rotate(90deg);
+}
+
+.sidebar-content {
+    flex-grow: 1;
+    overflow-y: auto;
+    overflow-x: hidden; /* 同时隐藏水平方向的溢出 */
+    padding: 0.5rem 0;
+}
+
+.history-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.history-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0.75rem 1rem;
+    margin: 0.25rem 0.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    color: #444;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.sidebar-wrapper:not(.collapsed) .history-item {
+    justify-content: flex-start;
+}
+.sidebar-wrapper.collapsed .history-item {
+    justify-content: center;
+}
+
+.history-item:hover {
+    background-color: #e9ecef;
+}
+
+.history-item.active {
+    background-color: #007bff;
+    color: white;
+    font-weight: 500;
+}
+
+.history-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: opacity 0.2s ease;
+}
+
+.sidebar-icon {
+    width: 24px;
+    height: 24px;
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+}
+.new-chat-button:hover .sidebar-icon {
+    transform: rotate(90deg);
+}
+
+.history-item-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}

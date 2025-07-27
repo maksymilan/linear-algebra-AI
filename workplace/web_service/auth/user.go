@@ -10,4 +10,6 @@ type User struct {
 	PasswordHash string    `gorm:"not null" json:"-"`                     // 存储哈希后的密码，json:"-"确保不被序列化返回
 	Role         string    `gorm:"not null;default:'student'" json:"role"`
 	CreatedAt    time.Time `json:"created_at"`
+	DisplayName  string    `gorm:"default:''" json:"displayName"`
+	AvatarURL    string    `gorm:"default:''" json:"avatarUrl"`
 }

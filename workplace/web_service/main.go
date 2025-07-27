@@ -95,17 +95,20 @@ func main() {
 						}
 						part, err := writer.CreatePart(h)
 						if err != nil {
+							fmt.Printf("Error creating form file part: %v\n", err)
 							c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create form file"})
 							return
 						}
 						file, err := fileHeader.Open()
 						if err != nil {
+							fmt.Printf("Error opening file: %v\n", err)
 							c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open file"})
 							return
 						}
 						_, err = io.Copy(part, file)
 						file.Close()
 						if err != nil {
+							fmt.Printf("Error copying file content: %v\n", err)
 							c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to copy file content"})
 							return
 						}
@@ -115,6 +118,7 @@ func main() {
 
 				proxyReq, err := http.NewRequest("POST", targetURL, body)
 				if err != nil {
+					log.Printf("Failed to create request to AI service: %v\n", err)
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
 					return
 				}
