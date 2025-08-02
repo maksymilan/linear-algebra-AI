@@ -25,7 +25,7 @@ func main() {
 	r.MaxMultipartMemory = 8 << 24 // 8 MiB
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     []string{"http://localhost:5174", "http://localhost:5173"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -70,8 +70,9 @@ func main() {
 		})
 
 		chatRoutes := api.Group("/chat")
-		chatRoutes.Use(auth.AuthMiddleware())
+		// chatRoutes.Use(auth.AuthMiddleware())
 		{
+			fmt.Println("Chat routes initialized")
 			chatRoutes.POST("/send", func(c *gin.Context) {
 				targetURL := "http://localhost:8000/api/v1/chat"
 				body := &bytes.Buffer{}

@@ -21,6 +21,5 @@ docker run --name LA-AI \
 # 使用 psql 命令连接到 PostgreSQL 数据库
 # 确保你已经安装了 PostgreSQL 客户端工具
 psql -h localhost -p 5432 -U postgres -d LA-DB
+password: password
 ```
-
-

@@ -12,3 +12,8 @@ go get github.com/sendgrid/sendgrid-go
 ```bash
 go run main.go  # 启动服务
 ```
+
+检查数据库连接情况（访问这个地址）
+```bash
+http://localhost:8080/api/health/db
+```

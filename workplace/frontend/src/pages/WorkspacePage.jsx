@@ -6,23 +6,24 @@ import { useNavigate } from 'react-router-dom';
 import MessageList from '../components/MessageList';
 import MessageInput from '../components/MessageInput';
 import ChatHistorySidebar from '../components/ChatHistorySidebar';
+import VisualizationCanvas from '../components/VisualizationCanvas'; // <--- 1. 导入新组件
 import './WorkspacePage.css';
 
+// ... (Icon Components and initialChats remain the same) ...
 // --- Icon Components ---
 const LogoutIcon = () => <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>;
 const PanelCollapseIcon = () => <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>;
 const PanelExpandIcon = () => <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 15v6h6M21 9V3h-6M3 9l7-7M21 15l-7 7"/></svg>;
 
-// --- V V V 核心修改 1: 移除初始消息 V V V ---
 const initialChatId = `chat-${Date.now()}`;
 const initialChats = {
   [initialChatId]: {
     id: initialChatId,
     title: "新的聊天",
-    messages: [] // messages 数组现在为空
+    messages: []
   }
 };
-// --- ^ ^ ^ 核心修改 1 ^ ^ ^ ---
+
 
 const WorkspacePage = () => {
   const { logoutAction, token, user } = useAuth();
@@ -33,16 +34,15 @@ const WorkspacePage = () => {
   const [input, setInput] = useState('');
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isPanelCollapsed, setIsPanelCollapsed] = useState(true);
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false); // <--- 2. 默认展开
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [sidebarHover, setSidebarHover] = useState(false);
   
   const activeMessages = chats[activeChatId]?.messages || [];
 
-  // --- V V V 核心修改 3: 调整标题生成逻辑 V V V ---
-  useEffect(() => {
+  // ... (useEffect and other functions remain the same) ...
+    useEffect(() => {
     const activeChat = chats[activeChatId];
-    // 当消息数量为1（即用户发送了第一条消息后）且标题仍为默认值时
     if (activeChat && activeChat.messages.length === 1 && activeChat.title === "新的聊天") {
       const firstUserMessage = activeChat.messages[0].text;
       const newTitle = firstUserMessage.substring(0, 30) + (firstUserMessage.length > 30 ? '...' : '');
@@ -52,7 +52,6 @@ const WorkspacePage = () => {
       }));
     }
   }, [chats, activeChatId]);
-  // --- ^ ^ ^ 核心修改 3 ^ ^ ^ ---
 
   const handleSend = async () => {
     if ((input.trim() === '' && files.length === 0) || isLoading) return;
@@ -89,7 +88,6 @@ const WorkspacePage = () => {
     }
   };
 
-  // --- V V V 核心修改 2: 新对话不包含初始消息 V V V ---
   const handleNewChat = () => {
       const newChatId = `chat-${Date.now()}`;
       setChats(prevChats => ({
@@ -97,14 +95,13 @@ const WorkspacePage = () => {
           [newChatId]: {
               id: newChatId,
               title: "新的聊天",
-              messages: [] // 新对话的消息列表也为空
+              messages: []
           }
       }));
       setActiveChatId(newChatId);
       setInput('');
       setFiles([]);
   };
-  // --- ^ ^ ^ 核心修改 2 ^ ^ ^ ---
   
   const handleSelectChat = (chatId) => {
       setActiveChatId(chatId);
@@ -138,7 +135,6 @@ const WorkspacePage = () => {
 
       <div className="qa-panel">
         <div className="chat-window">
-          {/* --- V V V 核心修改 4: 调整欢迎界面显示条件 V V V --- */}
           {activeMessages.length === 0 ? (
             <div className="welcome-screen">
               <div className="welcome-gradient-text">你好, {user?.displayName || user?.name || '用户'}</div>
@@ -147,7 +143,6 @@ const WorkspacePage = () => {
           ) : (
             <MessageList messages={activeMessages} isLoading={isLoading} user={user} />
           )}
-          {/* --- ^ ^ ^ 核心修改 4 ^ ^ ^ --- */}
           
           <MessageInput
             input={input}
@@ -160,6 +155,7 @@ const WorkspacePage = () => {
         </div>
       </div>
       
+      {/* --- 3. 修改可视化面板 --- */}
       <div className={`visualization-panel ${isPanelCollapsed ? 'collapsed' : ''}`}>
         <div className="panel-controls">
             <button onClick={() => setIsPanelCollapsed(!isPanelCollapsed)} className="control-button" title={isPanelCollapsed ? "展开面板" : "收起面板"}>
@@ -169,10 +165,11 @@ const WorkspacePage = () => {
                 <LogoutIcon />
             </button>
         </div>
-        <div className="placeholder-text">
-            {isPanelCollapsed ? '' : '可视化区域'}
-        </div>
+        {!isPanelCollapsed && (
+          <VisualizationCanvas />
+        )}
       </div>
+      {/* --- ^ ^ ^ 修改结束 ^ ^ ^ --- */}
     </div>
   );
 };
