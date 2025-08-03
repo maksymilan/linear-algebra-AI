@@ -1,11 +1,13 @@
-import React, { useState, useMemo, useRef, useLayoutEffect } from 'react';
+import React, { useMemo, useRef, useLayoutEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { useSpring, animated } from '@react-spring/three';
 import './VisualizationCanvas.css';
 
-// --- 辅助组件区域 (无改动) ---
+// --- 1. 整个文件现在是纯展示组件，接收props ---
+
+// ... (CustomArrow, ZUpGrid, ZUpMultiPlaneGrid, Custom2DAxes, Legend components remain exactly the same)
 const CustomArrow = ({ direction, length, color }) => {
   const groupRef = useRef();
   useLayoutEffect(() => {
@@ -36,21 +38,16 @@ const CustomArrow = ({ direction, length, color }) => {
   );
 };
 
-// --- Z轴朝上坐标系的网格 ---
 const ZUpGrid = ({ ...props }) => (
   <>
-    {/* XY 地板网格 (Drei默认Grid在XZ平面，需旋转) */}
     <Grid rotation={[Math.PI / 2, 0, 0]} {...props} />
   </>
 );
 
 const ZUpMultiPlaneGrid = ({ ...props }) => (
   <>
-    {/* XY 地板网格 */}
     <Grid rotation={[Math.PI / 2, 0, 0]} {...props} /> 
-    {/* XZ 墙壁网格 */}
     <Grid rotation={[0, 0, 0]} {...props} />
-    {/* YZ 墙壁网格 */}
     <Grid rotation={[0, Math.PI / 2, 0]} {...props} />
   </>
 );
@@ -91,7 +88,6 @@ const Legend = ({ dimension }) => (
 );
 
 
-// 3B1B 风格的变换场景
 const Scene3B1B = ({ matrix, dimension }) => {
   const { mat } = useSpring({ mat: matrix.flat(), config: { mass: 1, tension: 120, friction: 26 } });
   const i_hat_vec = useMemo(() => new THREE.Vector3(1, 0, 0), []);
@@ -99,13 +95,11 @@ const Scene3B1B = ({ matrix, dimension }) => {
   const k_hat_vec = useMemo(() => new THREE.Vector3(0, 0, 1), []);
   const gridProps = { args: [10, 10], cellSize: 1, infiniteGrid: true, fadeDistance: 25 };
   
-  // --- 修正了基向量标签的定位逻辑 ---
   return (
     <>
       <animated.group
         matrix={mat.to((...m) => {
           const mat4 = new THREE.Matrix4();
-          // 矩阵数据是按行展开的：m[0]..m[2] 是第一行, m[3]..m[5] 是第二行, etc.
           if (dimension === 2) { 
               mat4.set(m[0], m[1], 0, 0, m[2], m[3], 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
           } else { 
@@ -124,7 +118,6 @@ const Scene3B1B = ({ matrix, dimension }) => {
         {dimension === 3 && <CustomArrow direction={k_hat_vec} length={1} color="#f0e68c" />}
       </animated.group>
 
-      {/* 变换后的基向量 = 矩阵的列向量 */}
       <animated.mesh position={mat.to((...m) => new THREE.Vector3(m[0], m[3], dimension === 3 ? m[6] : 0).multiplyScalar(1.2))}>
           <Text fontSize={0.5} color="#d1422a" characters="î" />
       </animated.mesh>
@@ -178,39 +171,28 @@ const MatrixInput = ({ matrix, onMatrixChange, dimension }) => {
     );
 }
 
-// 顶层组件
-const VisualizationCanvas = ({ ...props }) => {
-    const [dimension, setDimension] = useState(3);
-    const [matrix, setMatrix] = useState([[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
-
-    const handleMatrixChange = (newMatrix) => {
-        setMatrix(newMatrix);
-    };
-
-    const handleDimensionChange = (dim) => {
-      setDimension(dim);
-      setMatrix(dim === 2 ? [[1, 0], [0, 1]] : [[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
-    };
-
+// --- 2. 顶层组件现在只接收props，不再管理自己的状态 ---
+const VisualizationCanvas = ({ dimension, matrix, onDimensionChange, onMatrixChange, ...props }) => {
+    
+    // 验证矩阵是否所有值都是有效数字
     const isMatrixValid = useMemo(() => matrix.flat().every(cell => typeof cell === 'number' && !isNaN(cell)), [matrix]);
     
+    // 创建一个仅在矩阵有效时传递给场景的 memoized 版本
     const validMatrixForScene = useMemo(() => {
         if (isMatrixValid) return matrix;
         return dimension === 2 ? [[1, 0], [0, 1]] : [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
     }, [isMatrixValid, matrix, dimension]);
 
-
     return (
       <div className="vis-container" {...props}>
           <div className="vis-controls-panel">
               <div className="vis-dimension-buttons">
-                  <button onClick={() => handleDimensionChange(2)} disabled={dimension === 2}>2D</button>
-                  <button onClick={() => handleDimensionChange(3)} disabled={dimension === 3}>3D</button>
+                  <button onClick={() => onDimensionChange(2)} disabled={dimension === 2}>2D</button>
+                  <button onClick={() => onDimensionChange(3)} disabled={dimension === 3}>3D</button>
               </div>
-              <MatrixInput matrix={matrix} onMatrixChange={handleMatrixChange} dimension={dimension} />
+              <MatrixInput matrix={matrix} onMatrixChange={onMatrixChange} dimension={dimension} />
           </div>
           <div className="vis-canvas-wrapper">
-              {/* --- 核心改动：设置相机 up 方向和初始位置 --- */}
               <Canvas camera={{ position: [4, 4, 4], up: [0, 0, 1] }}>
                   <color attach="background" args={['#ffffff']} />
                   <Scene3B1B matrix={validMatrixForScene} dimension={dimension} />
