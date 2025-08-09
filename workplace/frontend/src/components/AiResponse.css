@@ -1,0 +1,71 @@
+.ai-response-content {
+  text-align: left;
+  line-height: 1.6;
+  color: #333;
+}
+
+.ai-response-content h1,
+.ai-response-content h2,
+.ai-response-content h3 {
+  border-bottom: 1px solid #eaecef;
+  padding-bottom: 0.3em;
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+
+.ai-response-content p {
+  margin-bottom: 16px;
+}
+
+.ai-response-content code {
+  background-color: #f6f8fa;
+  padding: 0.2em 0.4em;
+  margin: 0;
+  font-size: 85%;
+  border-radius: 6px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+}
+
+.ai-response-content pre {
+  background-color: #f6f8fa;
+  padding: 16px;
+  overflow: auto;
+  border-radius: 6px;
+}
+
+.ai-response-content pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.ai-response-content table {
+    border-collapse: collapse;
+    margin: 1rem 0;
+    display: block;
+    overflow-x: auto;
+}
+
+.ai-response-content th,
+.ai-response-content td {
+    border: 1px solid #dfe2e5;
+    padding: 6px 13px;
+}
+
+.ai-response-content tr {
+    border-top: 1px solid #c6cbd1;
+}
+
+.ai-response-content tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+
+.ai-response-content blockquote {
+    border-left: 0.25em solid #dfe2e5;
+    padding: 0 1em;
+    color: #6a737d;
+}
+
+/* 确保 Katex 公式颜色在暗色主题下也可见 */
+.katex {
+  color: #333;
+}

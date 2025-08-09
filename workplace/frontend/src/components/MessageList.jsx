@@ -1,7 +1,8 @@
 // src/components/MessageList.jsx
 import React, { useEffect, useRef } from 'react';
+import AiResponse from './AiResponse'; // 1. 导入新组件
 
-// 文件图标
+// ... (FileIcon and Avatar components remain the same)
 const FileIcon = () => (
     <svg className="file-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
@@ -9,17 +10,14 @@ const FileIcon = () => (
     </svg>
 );
 
-
-// 头像组件
 const Avatar = ({ sender, user }) => {
-    // AI的头像
+    // ... (Avatar implementation remains the same)
     const aiAvatar = (
         <div className="avatar ai-avatar">
             <img src="/logo.svg" alt="AI Avatar" />
         </div>
     );
 
-    // 用户的头像
     const userAvatar = user?.avatarUrl ? (
         <img src={user.avatarUrl} alt={user.displayName || user.name} className="avatar user-avatar" />
     ) : (
@@ -47,12 +45,13 @@ const MessageList = ({ messages, isLoading, user }) => {
         <div key={index} className={`message-container ${msg.sender === 'user' ? 'user' : 'ai'}`}>
             <Avatar sender={msg.sender} user={user} />
             <div className={`message ${msg.sender === 'user' ? 'user-message' : 'ai-message'}`}>
-                {/* 渲染消息文本 */}
-                {/* 使用 condition to render div only if msg.text is not empty */}
-                {msg.text && <div dangerouslySetInnerHTML={{ __html: msg.text }} />}
+                {/* 2. 修改此部分 */}
+                {msg.text && (
+                    msg.sender === 'ai' 
+                        ? <AiResponse content={msg.text} /> 
+                        : <div dangerouslySetInnerHTML={{ __html: msg.text }} />
+                )}
 
-                {/* --- V V V 这是恢复的关键逻辑 V V V --- */}
-                {/* 如果消息包含文件，则渲染文件列表 */}
                 {msg.files && msg.files.length > 0 && (
                     <div className="message-files-container">
                     {msg.files.map((file, fileIndex) => (
@@ -70,7 +69,6 @@ const MessageList = ({ messages, isLoading, user }) => {
                     ))}
                     </div>
                 )}
-                {/* --- ^ ^ ^ 这是恢复的关键逻辑 ^ ^ ^ --- */}
             </div>
         </div>
       ))}

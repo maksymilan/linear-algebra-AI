@@ -1,4 +1,5 @@
 import React from 'react';
+import AiResponse from './AiResponse'; // 1. 导入新组件
 
 const GradingResults = ({ selectedResult }) => {
     return (
@@ -6,7 +7,10 @@ const GradingResults = ({ selectedResult }) => {
             {selectedResult ? (
                 <>
                     <h3>批改结果: {selectedResult.filename}</h3>
-                    <div className="correction-content" dangerouslySetInnerHTML={{ __html: selectedResult.correction }}></div>
+                    {/* 2. 使用AiResponse组件替换原来的div */}
+                    <div className="correction-content">
+                       <AiResponse content={selectedResult.correction} />
+                    </div>
                 </>
             ) : (
                 <div className="no-result">
