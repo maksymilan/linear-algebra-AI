@@ -137,9 +137,12 @@
     flex-grow: 1;
 }
 .submit-section {
-    padding: 1rem 2rem;
+    padding: 1.5rem 2rem;
     background-color: #f7f7f7;
     border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 .submit-section button {
     padding: 0.75rem 2rem;
@@ -188,5 +191,56 @@
 }
 .error-message {
     color: #ff4d4f;
-    margin-left: 1rem;
+    margin: 0;
+}
+
+/* --- V V V 新增和修改的样式 V V V --- */
+.file-upload-area {
+    margin-top: 1rem;
+    display: flex;
+    align-items: flex-start; /* 顶部对齐 */
+    gap: 1rem;
+}
+
+.file-status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* 状态块之间的间距 */
+}
+
+.file-status {
+    background-color: #e9ecef;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    height: 36px; /* 固定高度 */
+    box-sizing: border-box;
+}
+
+.file-status-icon {
+    flex-shrink: 0;
+}
+
+.file-status-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.spinner {
+    border: 3px solid rgba(0, 123, 255, 0.2);
+    border-top: 3px solid #007bff;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }

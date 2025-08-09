@@ -3,10 +3,12 @@ package grading
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"strconv"
 	"time"
 
@@ -25,23 +27,21 @@ type AIGradeResponse struct {
 
 // GradeHomeworkHandler 处理作业上传和批改
 func (h *GradingHandler) GradeHomeworkHandler(c *gin.Context) {
-	// 1. 获取表单数据
 	problemText := c.PostForm("problemText")
-	solutionText := c.PostForm("solutionText")         // 获取solutionText
-	solutionFilename := c.PostForm("solutionFilename") // 获取文件名
+	solutionText := c.PostForm("solutionText")
+	solutionFilename := c.PostForm("solutionFilename")
 
 	if solutionText == "" || problemText == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Problem and solution text are required"})
 		return
 	}
 
-	// 2. 将数据转发给AI服务
 	targetURL := "http://localhost:8000/api/v1/grade"
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
 	writer.WriteField("problem_text", problemText)
-	writer.WriteField("solution_text", solutionText) // 修改：发送solution_text
+	writer.WriteField("solution_text", solutionText)
 	writer.Close()
 
 	proxyReq, _ := http.NewRequest("POST", targetURL, body)
@@ -55,7 +55,6 @@ func (h *GradingHandler) GradeHomeworkHandler(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
-	// 3. 解析AI服务的响应
 	var aiResp AIGradeResponse
 	responseBody, _ := io.ReadAll(resp.Body)
 	log.Printf("AI Service Response: %s", string(responseBody))
@@ -70,13 +69,22 @@ func (h *GradingHandler) GradeHomeworkHandler(c *gin.Context) {
 		return
 	}
 
-	// 4. 将批改结果存入数据库
-	userID, _ := c.Get("userID")
+	userIDRaw, _ := c.Get("userID")
+
+	// --- 核心修正点：安全的类型转换 ---
+	userIDFloat, ok := userIDRaw.(float64)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type in token"})
+		return
+	}
+	userID := uint(userIDFloat)
+	// --- 修正结束 ---
+
 	newResult := GradeResult{
-		UserID:     userID.(uint),
+		UserID:     userID, // 使用转换后的userID
 		Filename:   solutionFilename,
 		Problem:    problemText,
-		Content:    solutionText, // 保存确认后的解答文本
+		Content:    solutionText,
 		Correction: aiResp.Correction,
 	}
 
@@ -90,7 +98,14 @@ func (h *GradingHandler) GradeHomeworkHandler(c *gin.Context) {
 
 // GetHistoryHandler 获取当前用户的批改历史
 func (h *GradingHandler) GetHistoryHandler(c *gin.Context) {
-	userID, _ := c.Get("userID")
+	userIDRaw, _ := c.Get("userID")
+	userIDFloat, ok := userIDRaw.(float64)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type in token"})
+		return
+	}
+	userID := uint(userIDFloat)
+
 	var results []GradeResult
 	if err := h.DB.Where("user_id = ?", userID).Order("created_at desc").Find(&results).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve history"})
@@ -101,7 +116,14 @@ func (h *GradingHandler) GetHistoryHandler(c *gin.Context) {
 
 // DeleteResultHandler 删除一条批改记录
 func (h *GradingHandler) DeleteResultHandler(c *gin.Context) {
-	userID, _ := c.Get("userID")
+	userIDRaw, _ := c.Get("userID")
+	userIDFloat, ok := userIDRaw.(float64)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type in token"})
+		return
+	}
+	userID := uint(userIDFloat)
+
 	resultID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid result ID"})
@@ -132,11 +154,19 @@ func (h *GradingHandler) OcrHandler(c *gin.Context) {
 	targetURL := "http://localhost:8000/api/v1/ocr"
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", file.Filename)
+
+	originalContentType := file.Header.Get("Content-Type")
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, file.Filename))
+	if originalContentType != "" {
+		header.Set("Content-Type", originalContentType)
+	}
+	part, err := writer.CreatePart(header)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create form file for OCR"})
 		return
 	}
+
 	src, err := file.Open()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open OCR file"})
