@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"workplace/web_service/auth"
+	"workplace/web_service/grading" // 1. 导入新的 grading 包
 
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -12,7 +13,6 @@ import (
 )
 
 func ConnectDB() *gorm.DB {
-	// ... (dotenv and dsn loading logic remains the same) ...
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("No .env file found, reading from environment variables")
@@ -28,9 +28,9 @@ func ConnectDB() *gorm.DB {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// 自动迁移：GORM现在只会处理User表
-	log.Println("Running GORM AutoMigrate for User model...")
-	err = db.AutoMigrate(&auth.User{})
+	// --- 2. 添加 GradeResult 模型到自动迁移列表 ---
+	log.Println("Running GORM AutoMigrate...")
+	err = db.AutoMigrate(&auth.User{}, &grading.GradeResult{})
 	if err != nil {
 		log.Fatalf("GORM AutoMigrate failed: %v", err)
 	}

@@ -105,8 +105,8 @@
 }
 
 .history-item.active {
-    background-color: #007bff;
-    color: white;
+    background-color: #000000;
+    color: rgb(17, 100, 255);
     font-weight: 500;
 }
 
@@ -131,4 +131,30 @@
     width: 18px;
     height: 18px;
     flex-shrink: 0;
+}
+
+.sidebar-nav-button {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: calc(100% - 1rem);
+    margin: 0.5rem;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    font-weight: 500;
+    text-align: left;
+    background-color: #e9ecef;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sidebar-nav-button:hover {
+    background-color: #dee2e6;
+    border-color: #adb5bd;
+}
+
+.sidebar-nav-button span {
+    flex-grow: 1;
 }

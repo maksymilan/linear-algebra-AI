@@ -13,6 +13,7 @@ import (
 
 	"workplace/web_service/auth"
 	"workplace/web_service/config"
+	"workplace/web_service/grading"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -34,6 +35,7 @@ func main() {
 	}))
 
 	authHandler := &auth.AuthHandler{DB: db}
+	gradingHandler := &grading.GradingHandler{DB: db}
 
 	api := r.Group("/api")
 	{
@@ -136,6 +138,15 @@ func main() {
 
 				c.Data(resp.StatusCode, "application/json", responseBody)
 			})
+		}
+
+		gradingRoutes := api.Group("/grading")
+		gradingRoutes.Use(auth.AuthMiddleware())
+		{
+			gradingRoutes.POST("/upload", gradingHandler.GradeHomeworkHandler)
+			gradingRoutes.GET("/history", gradingHandler.GetHistoryHandler)
+			gradingRoutes.DELETE("/:id", gradingHandler.DeleteResultHandler)
+			gradingRoutes.POST("/ocr", gradingHandler.OcrHandler)
 		}
 	}
 

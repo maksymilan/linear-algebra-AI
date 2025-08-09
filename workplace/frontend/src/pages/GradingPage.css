@@ -1,0 +1,192 @@
+/* --- 主容器和面板样式 --- */
+.grading-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #f4f7f9;
+    color: #333;
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+.grading-sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    background-color: #fff;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+}
+.sidebar-header {
+    padding: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+}
+.sidebar-header h3 {
+    margin: 0;
+    margin-top: 1rem;
+    font-size: 1.2rem;
+}
+.back-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #007bff;
+    font-size: 0.9rem;
+    padding: 0;
+    margin-bottom: 0.5rem;
+}
+.history-list {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+.history-item {
+    padding: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    position: relative;
+}
+.history-item:hover {
+    background-color: #f0f8ff;
+}
+.history-item.active {
+    background-color: #e6f2ff;
+    border-right: 3px solid #007bff;
+}
+.history-item .filename {
+    font-weight: 600;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.history-item .timestamp {
+    font-size: 0.8rem;
+    color: #666;
+}
+.delete-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: none;
+}
+.history-item:hover .delete-btn {
+    display: block;
+}
+.delete-btn:hover {
+    color: #ff4d4f;
+}
+.grading-main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+.grading-workflow {
+    padding: 2rem;
+    background-color: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+.workflow-step {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.step-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+.step-number {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: #007bff;
+    color: white;
+    font-weight: bold;
+}
+.workflow-step h2 { margin: 0; }
+.workflow-step p {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 0;
+}
+.problem-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    flex-grow: 1;
+}
+.submit-section {
+    padding: 1rem 2rem;
+    background-color: #f7f7f7;
+    border-bottom: 1px solid #e0e0e0;
+}
+.submit-section button {
+    padding: 0.75rem 2rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+.submit-section button:disabled {
+    background-color: #8cda9e;
+    cursor: not-allowed;
+}
+.results-section {
+    padding: 2rem;
+    flex-grow: 1;
+}
+.results-section h3 {
+    margin-top: 0;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 0.5rem;
+    display: inline-block;
+}
+.correction-content {
+    margin-top: 1.5rem;
+    line-height: 1.6;
+}
+.correction-content h3 {
+    font-size: 1.2rem;
+    margin-top: 1.5rem;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 0.5rem;
+}
+.correction-content strong {
+    font-weight: 600;
+}
+.no-result {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #888;
+    font-size: 1.2rem;
+}
+.error-message {
+    color: #ff4d4f;
+    margin-left: 1rem;
+}
