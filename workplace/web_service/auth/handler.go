@@ -30,7 +30,6 @@ type LoginRequest struct {
 
 // Register 处理新用户注册
 func (h *AuthHandler) Register(c *gin.Context) {
-	return // 直接返回，避免注册功能被调用
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input: " + err.Error()})
@@ -72,7 +71,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 // Login 处理用户登录
 func (h *AuthHandler) Login(c *gin.Context) {
-	return // 直接返回，避免登录功能被调用
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})

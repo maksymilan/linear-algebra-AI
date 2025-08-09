@@ -37,7 +37,8 @@ const WorkspacePage = () => {
   
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(true);
   const [dimension, setDimension] = useState(3);
-  const [matrix, setMatrix] = useState([[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
+  const [matrix2d, setMatrix2d] = useState([[1, 0], [0, 1]]);
+  const [matrix3d, setMatrix3d] = useState([[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
   const [selectedVector, setSelectedVector] = useState(null);
 
   const activeMessages = chats[activeChatId]?.messages || [];
@@ -55,12 +56,15 @@ const WorkspacePage = () => {
   }, [chats, activeChatId]);
 
   const handleMatrixChange = (newMatrix) => {
-    setMatrix(newMatrix);
+    if (dimension === 2) {
+      setMatrix2d(newMatrix);
+    } else {
+      setMatrix3d(newMatrix);
+    }
   };
 
   const handleDimensionChange = (dim) => {
     setDimension(dim);
-    setMatrix(dim === 2 ? [[1, 0], [0, 1]] : [[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
     setSelectedVector(null); 
   };
   
@@ -94,10 +98,27 @@ const WorkspacePage = () => {
           return { ...prevChats, [activeChatId]: { ...prevChats[activeChatId], messages: [...currentMessages, aiMessage] } };
       });
 
-      if (aiResponseData.visualization_matrix) {
-          const viz = aiResponseData.visualization_matrix;
-          setDimension(viz.dimension);
-          setMatrix(viz.matrix);
+      // --- 核心改动：处理新的 `visualizations` 字段 ---
+      if (aiResponseData.visualizations) {
+          const viz = aiResponseData.visualizations;
+          let hasSetDimension = false;
+
+          // 如果有2D矩阵，更新2D状态
+          if (viz["2d"] && viz["2d"].matrix) {
+              setMatrix2d(viz["2d"].matrix);
+              setDimension(2); // 优先显示2D
+              hasSetDimension = true;
+          }
+
+          // 如果有3D矩阵，更新3D状态
+          if (viz["3d"] && viz["3d"].matrix) {
+              setMatrix3d(viz["3d"].matrix);
+              // 如果没有设置过维度（即没有2D矩阵），则显示3D
+              if (!hasSetDimension) {
+                  setDimension(3);
+              }
+          }
+          
           setIsPanelCollapsed(false); 
       }
 
@@ -105,17 +126,13 @@ const WorkspacePage = () => {
       console.error("Error fetching AI response:", error);
       const errorText = error.response?.data?.error || error.response?.data?.detail || "哎呀，出错了，请稍后再试。";
       const errorMessage = { text: errorText, sender: 'ai' };
-
-      // --- 核心修正点 ---
       setChats(prevChats => ({
         ...prevChats,
         [activeChatId]: {
-          ...prevChats[activeChatId], // 1. 展开旧的聊天对象
-          messages: [...prevChats[activeChatId].messages, errorMessage] // 2. 覆盖messages属性
+          ...prevChats[activeChatId],
+          messages: [...prevChats[activeChatId].messages, errorMessage]
         }
       }));
-      // --- 修正结束 ---
-
     } finally {
       setIsLoading(false);
     }
@@ -186,7 +203,7 @@ const WorkspacePage = () => {
         {!isPanelCollapsed && (
           <VisualizationCanvas
             dimension={dimension}
-            matrix={matrix}
+            matrix={dimension === 2 ? matrix2d : matrix3d}
             onDimensionChange={handleDimensionChange}
             onMatrixChange={handleMatrixChange}
             selectedVector={selectedVector}
