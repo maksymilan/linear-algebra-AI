@@ -16,11 +16,15 @@
     "axios": "^1.10.0",
     "framer-motion": "^12.23.12",
     "jwt-decode": "^4.0.0",
+    "katex": "^0.16.22",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.6.3",
+    "rehype-katex": "^7.0.1",
+    "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "three": "^0.179.1"
   },
   "devDependencies": {
