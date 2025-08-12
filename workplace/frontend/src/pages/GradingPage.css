@@ -1,246 +1,216 @@
-/* --- 主容器和面板样式 --- */
+/* src/pages/GradingPage.css */
+
 .grading-container {
-    display: flex;
-    height: 100vh;
-    width: 100vw;
-    font-family: 'Inter', system-ui, sans-serif;
-    background-color: #f4f7f9;
-    color: #333;
-    position: fixed;
-    top: 0;
-    left: 0;
+    width: 100%;
+    min-height: 100vh;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    padding: 2.5rem;
+    box-sizing: border-box;
 }
-.grading-sidebar {
-    width: 300px;
-    flex-shrink: 0;
-    background-color: #fff;
-    border-right: 1px solid #e0e0e0;
+
+.grading-content-wrapper {
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.grading-header {
+    padding: 2rem 2.5rem;
+    border-bottom: 1px solid #dee2e6;
     display: flex;
     flex-direction: column;
+    gap: 0.5rem;
 }
-.sidebar-header {
-    padding: 1rem;
-    border-bottom: 1px solid #e0e0e0;
-}
-.sidebar-header h3 {
-    margin: 0;
-    margin-top: 1rem;
-    font-size: 1.2rem;
-}
-.back-button {
+
+.grading-header .back-button {
     background: none;
     border: none;
     cursor: pointer;
     color: #007bff;
-    font-size: 0.9rem;
+    font-size: 1rem;
     padding: 0;
-    margin-bottom: 0.5rem;
-}
-.history-list {
-    flex-grow: 1;
-    overflow-y: auto;
-}
-.history-item {
-    padding: 1rem;
-    border-bottom: 1px solid #e0e0e0;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    position: relative;
-}
-.history-item:hover {
-    background-color: #f0f8ff;
-}
-.history-item.active {
-    background-color: #e6f2ff;
-    border-right: 3px solid #007bff;
-}
-.history-item .filename {
-    font-weight: 600;
-    display: block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.history-item .timestamp {
-    font-size: 0.8rem;
-    color: #666;
-}
-.delete-btn {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    background: none;
-    border: none;
-    color: #aaa;
-    font-size: 1.2rem;
-    cursor: pointer;
-    display: none;
-}
-.history-item:hover .delete-btn {
-    display: block;
-}
-.delete-btn:hover {
-    color: #ff4d4f;
-}
-.grading-main {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-}
-.grading-workflow {
-    padding: 2rem;
-    background-color: #fff;
-    border-bottom: 1px solid #e0e0e0;
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-}
-.workflow-step {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-}
-.step-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
     margin-bottom: 1rem;
-}
-.step-number {
+    font-weight: 500;
     display: flex;
-    justify-content: center;
     align-items: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background-color: #007bff;
-    color: white;
-    font-weight: bold;
+    gap: 0.5rem;
+    align-self: flex-start;
 }
-.workflow-step h2 { margin: 0; }
-.workflow-step p {
-    font-size: 0.9rem;
-    color: #666;
-    margin-top: 0;
+.grading-header .back-button:hover {
+    text-decoration: underline;
 }
+
+.grading-header h1 {
+    font-size: 1.8rem;
+    margin: 0;
+    color: #212529;
+}
+.grading-header p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 1rem;
+}
+
+.grading-main {
+    padding: 2.5rem;
+}
+
+.grading-workflow {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+}
+
+.workflow-step h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
 .problem-textarea {
     width: 100%;
     box-sizing: border-box;
-    padding: 0.5rem;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
     font-family: inherit;
     font-size: 1rem;
+    line-height: 1.6;
     margin-bottom: 1rem;
-    flex-grow: 1;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background-color: #f8f9fa;
 }
+.problem-textarea:focus {
+    outline: none;
+    border-color: #80bdff;
+    background-color: #fff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.file-upload-area { margin-top: 0.5rem; }
+
 .submit-section {
-    padding: 1.5rem 2rem;
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #e0e0e0;
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px dashed #dee2e6;
     display: flex;
+    flex-direction: column;
     align-items: center;
     gap: 1rem;
 }
+
 .submit-section button {
-    padding: 0.75rem 2rem;
-    background-color: #28a745;
-    color: white;
+    padding: 0.8rem 2.5rem;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 1.1rem;
     font-weight: bold;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    background-color: #28a745;
+    color: white;
+}
+.submit-section button:hover:not(:disabled) {
+    background-color: #218838;
 }
 .submit-section button:disabled {
-    background-color: #8cda9e;
+    background-color: #a3d9b1;
     cursor: not-allowed;
 }
+
 .results-section {
+    margin-top: 3rem;
     padding: 2rem;
-    flex-grow: 1;
+    background-color: #f8f9fa;
+    border-radius: 8px;
 }
 .results-section h3 {
     margin-top: 0;
-    border-bottom: 2px solid #007bff;
-    padding-bottom: 0.5rem;
-    display: inline-block;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+    color: #212529;
 }
 .correction-content {
-    margin-top: 1.5rem;
-    line-height: 1.6;
-}
-.correction-content h3 {
-    font-size: 1.2rem;
-    margin-top: 1.5rem;
-    border-bottom: 1px solid #ccc;
-    padding-bottom: 0.5rem;
-}
-.correction-content strong {
-    font-weight: 600;
-}
-.no-result {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-    color: #888;
-    font-size: 1.2rem;
-}
-.error-message {
-    color: #ff4d4f;
-    margin: 0;
+    background-color: #fff;
+    padding: 1.5rem;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    margin-bottom: 2rem; /* 为提问框留出空间 */
 }
 
-/* --- V V V 新增和修改的样式 V V V --- */
-.file-upload-area {
-    margin-top: 1rem;
+/* --- 新增：后续提问聊天框的样式 --- */
+.follow-up-chat-container {
+    margin-top: 2rem;
+    border-top: 1px solid #e9ecef;
+    padding-top: 2rem;
+}
+
+.follow-up-chat-container p {
+    margin: 0 0 1rem 0;
+    font-weight: 500;
+    color: #495057;
+}
+
+.follow-up-form {
     display: flex;
-    align-items: flex-start; /* 顶部对齐 */
+    flex-direction: column;
     gap: 1rem;
 }
 
-.file-status-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px; /* 状态块之间的间距 */
+.follow-up-form textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.75rem 1rem;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.6;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.follow-up-form textarea:focus {
+    outline: none;
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
 }
 
-.file-status {
-    background-color: #e9ecef;
-    padding: 8px 12px;
-    border-radius: 4px;
-    font-size: 0.9rem;
+.follow-up-form button {
+    padding: 0.8rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: all 0.2s;
     display: flex;
     align-items: center;
-    gap: 8px;
-    overflow: hidden;
-    height: 36px; /* 固定高度 */
-    box-sizing: border-box;
+    justify-content: center;
+    gap: 0.75rem;
+    background-color: #007bff;
+    color: white;
+    align-self: flex-end; /* 让按钮靠右 */
+}
+.follow-up-form button:hover:not(:disabled) {
+    background-color: #0056b3;
+}
+.follow-up-form button:disabled {
+    background-color: #6ea8ff;
+    cursor: not-allowed;
 }
 
-.file-status-icon {
-    flex-shrink: 0;
-}
-
-.file-status-name {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.spinner {
-    border: 3px solid rgba(0, 123, 255, 0.2);
-    border-top: 3px solid #007bff;
-    border-radius: 50%;
-    width: 16px;
-    height: 16px;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+.error-message {
+    color: #dc3545;
+    font-weight: 500;
 }

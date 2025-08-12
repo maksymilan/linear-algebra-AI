@@ -13,12 +13,14 @@ const containerStyle = {
   textAlign: 'left',
 };
 
-const FormInput = ({ label, type = 'text', value, onChange, placeholder, required = false }) => {
+// **关键修复：添加了 name 属性，并将其传递给 input 元素**
+const FormInput = ({ label, type = 'text', name, value, onChange, placeholder, required = false }) => {
   return (
     <div style={containerStyle}>
       <label style={{ marginBottom: '0.5rem', display: 'block' }}>{label}</label>
       <input
         type={type}
+        name={name} // 添加 name 属性
         value={value}
         onChange={onChange}
         placeholder={placeholder}

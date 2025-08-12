@@ -1,4 +1,5 @@
 // src/pages/HomePage.jsx
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -12,6 +13,7 @@ function HomePage() {
   const navigate = useNavigate();
   const { token } = useAuth();
 
+  // 核心修改：如果已登录，重定向到 /workspace
   useEffect(() => {
     if (token) {
       navigate('/workspace', { replace: true });
@@ -20,11 +22,11 @@ function HomePage() {
 
   const handleLoginSuccess = () => {
     setIsModalOpen(false);
-    navigate('/workspace', { replace: true });
+    navigate('/workspace', { replace: true }); // 登录成功后也重定向到 /workspace
   };
   
   const openModal = () => {
-    setView('login'); // 每次打开模态框时，都默认显示登录视图
+    setView('login');
     setIsModalOpen(true);
   };
 
@@ -40,17 +42,16 @@ function HomePage() {
   return (
     <div>
       <nav style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', borderBottom: '1px solid #eee' }}>
-        <h3>AI 助教平台</h3>
+        <h3>智能助教平台</h3>
         <button onClick={openModal}>登录/注册</button>
       </nav>
       
-      <main style={{ padding: '2rem' }}>
-        <h1>Think bigger. Build faster.</h1>
-        <p>这是您的公开主页。</p>
+      <main style={{ padding: '2rem', textAlign: 'center' }}>
+        <h1>欢迎使用智能助教平台</h1>
+        <p>一个集成了AI问答、可视化教学和智能批改的学习伙伴。</p>
       </main>
 
       <Modal isOpen={isModalOpen} onClose={closeModal}>
-        {/* --- 关键部分：根据 view 状态条件性渲染组件 --- */}
         {view === 'login' ? (
           <LoginForm 
             onLoginSuccess={handleLoginSuccess}

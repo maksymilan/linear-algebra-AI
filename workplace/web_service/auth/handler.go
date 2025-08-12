@@ -1,8 +1,8 @@
-// workplace/web_service/auth/handler.go
+// web_service/auth/handler.go
+
 package auth
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -21,6 +21,7 @@ type RegisterRequest struct {
 	Username string `json:"username" binding:"required,min=4"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
+	UserIDNo string `json:"user_id_no" binding:"required"`
 }
 
 type LoginRequest struct {
@@ -33,36 +34,30 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input: " + err.Error()})
-		fmt.Printf("Invalid input during registration: %v\n", err)
 		return
 	}
 
-	// 检查用户名或邮箱是否已存在
 	var existingUser User
-	if h.DB.Where("username = ? OR email = ?", req.Username, req.Email).First(&existingUser).Error == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "Username or email already exists"})
-		fmt.Printf("User registration conflict: %v\n", existingUser)
+	if h.DB.Where("username = ? OR email = ? OR user_id_no = ?", req.Username, req.Email, req.UserIDNo).First(&existingUser).Error == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "用户名、邮箱或学工号已存在"})
 		return
 	}
 
-	// 哈希密码
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
-		fmt.Printf("Failed to hash password: %v\n", err)
 		return
 	}
 
-	// 创建新用户
 	newUser := User{
 		Username:     req.Username,
 		Email:        req.Email,
+		UserIDNo:     req.UserIDNo,
 		PasswordHash: string(hashedPassword),
 	}
 
 	if result := h.DB.Create(&newUser); result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-		fmt.Printf("Failed to create user: %v\n", result.Error)
 		return
 	}
 
@@ -74,21 +69,17 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-		fmt.Printf("Invalid input during login: %v\n", err)
 		return
 	}
 
 	var user User
 	if err := h.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		fmt.Printf("Login failed for user %s: %v\n", req.Username, err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
 		return
 	}
 
-	// 验证密码
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		fmt.Printf("Password mismatch for user %s: %v\n", req.Username, err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
 		return
 	}
 
@@ -101,9 +92,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":         user.ID,
 		"name":        user.Username,
-		"role":        user.Role,
-		"displayName": displayName,    // 添加显示昵称
-		"avatarUrl":   user.AvatarURL, // 添加头像链接
+		"role":        user.Role, // <-- 在此加入角色信息
+		"displayName": displayName,
+		"avatarUrl":   user.AvatarURL,
 		"exp":         time.Now().Add(time.Hour * 24 * 7).Unix(),
 	})
 

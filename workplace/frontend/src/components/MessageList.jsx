@@ -1,8 +1,8 @@
 // src/components/MessageList.jsx
-import React, { useEffect, useRef } from 'react';
-import AiResponse from './AiResponse'; // 1. 导入新组件
 
-// ... (FileIcon and Avatar components remain the same)
+import React, { useEffect, useRef } from 'react';
+import AiResponse from './AiResponse';
+
 const FileIcon = () => (
     <svg className="file-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
@@ -11,7 +11,6 @@ const FileIcon = () => (
 );
 
 const Avatar = ({ sender, user }) => {
-    // ... (Avatar implementation remains the same)
     const aiAvatar = (
         <div className="avatar ai-avatar">
             <img src="/logo.svg" alt="AI Avatar" />
@@ -22,13 +21,26 @@ const Avatar = ({ sender, user }) => {
         <img src={user.avatarUrl} alt={user.displayName || user.name} className="avatar user-avatar" />
     ) : (
         <div className="avatar user-avatar-placeholder">
-            {(user?.displayName || user?.name || 'U').charAt(0)}
+            {(user?.displayName || user?.name || 'U').charAt(0).toUpperCase()}
         </div>
     );
     
     return sender === 'user' ? userAvatar : aiAvatar;
 };
 
+// 安全地将纯文本转换为可以显示的HTML（仅处理换行）
+const UserMessageContent = ({ text }) => {
+    return (
+        <div>
+            {String(text).split('\n').map((line, index, arr) => (
+                <React.Fragment key={index}>
+                    {line}
+                    {index < arr.length - 1 && <br />}
+                </React.Fragment>
+            ))}
+        </div>
+    );
+};
 
 const MessageList = ({ messages, isLoading, user }) => {
   const messagesEndRef = useRef(null);
@@ -37,19 +49,23 @@ const MessageList = ({ messages, isLoading, user }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(scrollToBottom, [messages, isLoading]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isLoading]);
+
+  // **关键修复：在渲染前过滤掉所有来自 "system" 的消息**
+  const visibleMessages = messages.filter(msg => msg.sender !== 'system');
 
   return (
     <div className="messages-list">
-      {messages.map((msg, index) => (
-        <div key={index} className={`message-container ${msg.sender === 'user' ? 'user' : 'ai'}`}>
+      {visibleMessages.map((msg) => (
+        <div key={msg.id} className={`message-container ${msg.sender === 'user' ? 'user' : 'ai'}`}>
             <Avatar sender={msg.sender} user={user} />
             <div className={`message ${msg.sender === 'user' ? 'user-message' : 'ai-message'}`}>
-                {/* 2. 修改此部分 */}
                 {msg.text && (
                     msg.sender === 'ai' 
                         ? <AiResponse content={msg.text} /> 
-                        : <div dangerouslySetInnerHTML={{ __html: msg.text }} />
+                        : <UserMessageContent text={msg.text} />
                 )}
 
                 {msg.files && msg.files.length > 0 && (

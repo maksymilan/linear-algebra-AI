@@ -1,218 +1,65 @@
-// src/pages/WorkspacePage.jsx
-import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
-import { useAuth } from '../hooks/useAuth';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import MessageList from '../components/MessageList';
-import MessageInput from '../components/MessageInput';
-import ChatHistorySidebar from '../components/ChatHistorySidebar';
-import VisualizationCanvas from '../components/VisualizationCanvas';
+import { useAuth } from '../hooks/useAuth';
 import './WorkspacePage.css';
 
-// ... (Icon Components and initialChats remain the same) ...
-const LogoutIcon = () => <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>;
-const PanelCollapseIcon = () => <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>;
-const PanelExpandIcon = () => <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 15v6h6M21 9V3h-6M3 9l7-7M21 15l-7 7"/></svg>;
+// --- 图标 (无变化) ---
+const ChatIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>;
+const GradeIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>;
+const AssignmentIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>;
 
-const initialChatId = `chat-${Date.now()}`;
-const initialChats = {
-  [initialChatId]: {
-    id: initialChatId,
-    title: "新的聊天",
-    messages: []
-  }
-};
 
 const WorkspacePage = () => {
-  const { logoutAction, token, user } = useAuth();
-  const navigate = useNavigate();
+    const navigate = useNavigate();
+    const { user, userRole, logoutAction } = useAuth();
 
-  const [chats, setChats] = useState(initialChats);
-  const [activeChatId, setActiveChatId] = useState(initialChatId);
-  const [input, setInput] = useState('');
-  const [files, setFiles] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [sidebarHover, setSidebarHover] = useState(false);
-  
-  const [isPanelCollapsed, setIsPanelCollapsed] = useState(true);
-  const [dimension, setDimension] = useState(3);
-  const [matrix2d, setMatrix2d] = useState([[1, 0], [0, 1]]);
-  const [matrix3d, setMatrix3d] = useState([[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
-  const [selectedVector, setSelectedVector] = useState(null);
+    const studentModules = [
+        { title: 'AI 助教', icon: <ChatIcon />, path: '/chat/new', description: '随时提问，获取即时帮助，支持公式和矩阵可视化。' },
+        { title: '课程作业', icon: <AssignmentIcon />, path: '/assignments', description: '查看和提交老师发布的作业，并获得AI的即时批改。' },
+        { title: '自主批改', icon: <GradeIcon />, path: '/grading', description: '上传题目和你的解答，检验自己的学习效果。' }
+    ];
 
-  const activeMessages = chats[activeChatId]?.messages || [];
+    const teacherModules = [
+        { title: '发布作业', icon: <AssignmentIcon />, path: '/assignments/new', description: '为您的班级创建和发布新作业。' },
+        { title: '查看提交', icon: <GradeIcon />, path: '/assignments', description: '跟踪学生的作业提交情况，查看AI的自动批改结果。' }
+    ];
 
-  useEffect(() => {
-    const activeChat = chats[activeChatId];
-    if (activeChat && activeChat.messages.length === 1 && activeChat.title === "新的聊天") {
-      const firstUserMessage = activeChat.messages[0].text;
-      const newTitle = firstUserMessage.substring(0, 30) + (firstUserMessage.length > 30 ? '...' : '');
-      setChats(prevChats => ({
-        ...prevChats,
-        [activeChatId]: { ...prevChats[activeChatId], title: newTitle }
-      }));
-    }
-  }, [chats, activeChatId]);
+    const modules = userRole === 'teacher' ? teacherModules : studentModules;
 
-  const handleMatrixChange = (newMatrix) => {
-    if (dimension === 2) {
-      setMatrix2d(newMatrix);
-    } else {
-      setMatrix3d(newMatrix);
-    }
-  };
-
-  const handleDimensionChange = (dim) => {
-    setDimension(dim);
-    setSelectedVector(null); 
-  };
-  
-  const handleVectorSelect = (vectorName) => {
-      setSelectedVector(prev => prev === vectorName ? null : vectorName);
-  };
-
-  const handleSend = async () => {
-    if ((input.trim() === '' && files.length === 0) || isLoading) return;
-    setSelectedVector(null);
-    const filesWithUrls = files.map(file => ({ file: file, name: file.name, url: URL.createObjectURL(file) }));
-    const userMessage = { text: input.trim(), sender: 'user', files: filesWithUrls };
-    setChats(prevChats => ({ ...prevChats, [activeChatId]: { ...prevChats[activeChatId], messages: [...prevChats[activeChatId].messages, userMessage] } }));
-    const formData = new FormData();
-    formData.append('prompt', input);
-    filesWithUrls.forEach(fileWrapper => { formData.append('files', fileWrapper.file); });
-    setInput('');
-    setFiles([]);
-    setIsLoading(true);
-    try {
-      const response = await axios.post('http://localhost:8080/api/chat/send', formData, { headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` } });
-      
-      const aiResponseData = response.data;
-      const aiMessageText = aiResponseData.text_explanation || aiResponseData.response || "收到了无法解析的回复格式。";
-      const aiMessage = { text: aiMessageText, sender: 'ai' };
-
-      setChats(prevChats => {
-          const currentMessages = prevChats[activeChatId].messages;
-          const lastUserMessage = currentMessages[currentMessages.length - 1];
-          if (lastUserMessage && lastUserMessage.files) { lastUserMessage.files.forEach(f => URL.revokeObjectURL(f.url)); }
-          return { ...prevChats, [activeChatId]: { ...prevChats[activeChatId], messages: [...currentMessages, aiMessage] } };
-      });
-
-      // --- 核心改动：处理新的 `visualizations` 字段 ---
-      if (aiResponseData.visualizations) {
-          const viz = aiResponseData.visualizations;
-          let hasSetDimension = false;
-
-          // 如果有2D矩阵，更新2D状态
-          if (viz["2d"] && viz["2d"].matrix) {
-              setMatrix2d(viz["2d"].matrix);
-              setDimension(2); // 优先显示2D
-              hasSetDimension = true;
-          }
-
-          // 如果有3D矩阵，更新3D状态
-          if (viz["3d"] && viz["3d"].matrix) {
-              setMatrix3d(viz["3d"].matrix);
-              // 如果没有设置过维度（即没有2D矩阵），则显示3D
-              if (!hasSetDimension) {
-                  setDimension(3);
-              }
-          }
-          
-          setIsPanelCollapsed(false); 
-      }
-
-    } catch (error) {
-      console.error("Error fetching AI response:", error);
-      const errorText = error.response?.data?.error || error.response?.data?.detail || "哎呀，出错了，请稍后再试。";
-      const errorMessage = { text: errorText, sender: 'ai' };
-      setChats(prevChats => ({
-        ...prevChats,
-        [activeChatId]: {
-          ...prevChats[activeChatId],
-          messages: [...prevChats[activeChatId].messages, errorMessage]
-        }
-      }));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleNewChat = () => {
-      const newChatId = `chat-${Date.now()}`;
-      setChats(prevChats => ({
-          ...prevChats,
-          [newChatId]: { id: newChatId, title: "新的聊天", messages: [] }
-      }));
-      setActiveChatId(newChatId);
-      setInput('');
-      setFiles([]);
-  };
-  
-  const handleSelectChat = (chatId) => { setActiveChatId(chatId); };
-  const toggleSidebar = () => { setIsSidebarCollapsed(prev => !prev); };
-  const handleLogout = () => { logoutAction(); navigate("/"); };
-
-  return (
-    <div className="workspace-container">
-      <div 
-        className={`sidebar-wrapper ${isSidebarCollapsed && !sidebarHover ? 'collapsed' : ''}`}
-        onMouseEnter={() => { if (isSidebarCollapsed) setSidebarHover(true); }}
-        onMouseLeave={() => { if (isSidebarCollapsed) setSidebarHover(false); }}
-      >
-        <ChatHistorySidebar
-          chats={chats}
-          activeChatId={activeChatId}
-          onNewChat={handleNewChat}
-          onSelectChat={handleSelectChat}
-          isCollapsed={isSidebarCollapsed && !sidebarHover}
-          onToggle={toggleSidebar}
-        />
-      </div>
-
-      <div className="qa-panel">
-        <div className="chat-window">
-          {activeMessages.length === 0 ? (
-            <div className="welcome-screen">
-              <div className="welcome-gradient-text">你好, {user?.displayName || user?.name || '用户'}</div>
-              <p className="welcome-subtitle">今天有什么可以帮您的吗？</p>
-            </div>
-          ) : (
-            <MessageList messages={activeMessages} isLoading={isLoading} user={user} />
-          )}
-          <MessageInput
-            input={input}
-            setInput={setInput}
-            files={files}
-            setFiles={setFiles}
-            onSend={handleSend}
-            isLoading={isLoading}
-          />
+    const UserDisplay = () => (
+        <div className="user-display">
+             <span>你好, {user?.displayName || user?.name}</span>
+             {userRole === 'teacher' && <span className="user-role-tag">老师</span>}
         </div>
-      </div>
-      
-      <div className={`visualization-panel ${isPanelCollapsed ? 'collapsed' : ''}`}>
-        <div className="panel-controls">
-            <button onClick={() => setIsPanelCollapsed(!isPanelCollapsed)} className="control-button" title={isPanelCollapsed ? "展开面板" : "收起面板"}>
-                {isPanelCollapsed ? <PanelExpandIcon /> : <PanelCollapseIcon />}
-            </button>
-            <button onClick={handleLogout} className="control-button" title="退出登录">
-                <LogoutIcon />
-            </button>
+    )
+
+    return (
+        <div className="workspace-container">
+            <header className="workspace-header">
+                <h1>智能助教工作台</h1>
+                <div className="user-info">
+                    <UserDisplay />
+                    <button onClick={logoutAction}>退出登录</button>
+                </div>
+            </header>
+            <main className="workspace-main">
+                {modules.map(module => (
+                    <section key={module.title} className="workspace-card" onClick={() => navigate(module.path)}>
+                        <div className="card-header">
+                            <div className="card-icon">{module.icon}</div>
+                            <h2>{module.title}</h2>
+                        </div>
+                        <div className="card-content">
+                            <p>{module.description}</p>
+                        </div>
+                        <div className="card-footer">
+                            <span>进入 →</span>
+                        </div>
+                    </section>
+                ))}
+            </main>
         </div>
-        {!isPanelCollapsed && (
-          <VisualizationCanvas
-            dimension={dimension}
-            matrix={dimension === 2 ? matrix2d : matrix3d}
-            onDimensionChange={handleDimensionChange}
-            onMatrixChange={handleMatrixChange}
-            selectedVector={selectedVector}
-            onVectorSelect={handleVectorSelect}
-          />
-        )}
-      </div>
-    </div>
-  );
+    );
 };
 
 export default WorkspacePage;

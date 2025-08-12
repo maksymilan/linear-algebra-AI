@@ -1,3 +1,5 @@
+// web_service/chat/handlers.go
+
 package chat
 
 import (
@@ -21,9 +23,9 @@ type ChatHandler struct {
 
 // AI服务的响应结构体
 type AIChatResponse struct {
-	Title           string      `json:"title,omitempty"`
-	Response        string      `json:"response,omitempty"`
-	TextExplanation string      `json:"text_explanation,omitempty"`
+	Title           string      `json:"title"`
+	TextExplanation string      `json:"text_explanation"`
+	Response        string      `json:"response"`
 	Visualizations  interface{} `json:"visualizations,omitempty"`
 	Error           string      `json:"error,omitempty"`
 }
@@ -32,77 +34,33 @@ type AIChatResponse struct {
 func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 	userIDRaw, _ := c.Get("userID")
 	userID := uint(userIDRaw.(float64))
+	isFirstMessage, _ := strconv.ParseBool(c.PostForm("is_first_message"))
+	prompt := c.PostForm("prompt")
 
-	// 解析 multipart form
-	form, err := c.MultipartForm()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid form data"})
-		return
-	}
-
-	promptValues := form.Value["prompt"]
-	prompt := ""
-	if len(promptValues) > 0 {
-		prompt = promptValues[0]
-	}
-
-	isFirstMessage, _ := strconv.ParseBool(form.Value["is_first_message"][0])
-	sessionIDStr := form.Value["chat_session_id"][0]
-
-	// 1. 保存用户消息到数据库
-	userMessage := ChatMessage{
-		Sender:    "user",
-		Content:   prompt,
-		CreatedAt: time.Now(),
-	}
-
-	var session ChatSession
-	var dbErr error
-
-	if isFirstMessage {
-		// 如果是第一条消息，创建一个新的会话
-		session = ChatSession{
-			UserID:    userID,
-			Title:     "新的聊天", // 临时标题
-			CreatedAt: time.Now(),
-			Messages:  []ChatMessage{userMessage},
-		}
-		dbErr = h.DB.Create(&session).Error
-	} else {
-		// 否则，为现有会话添加消息
-		sessionID, _ := strconv.Atoi(sessionIDStr)
-		userMessage.ChatSessionID = uint(sessionID)
-		dbErr = h.DB.Create(&userMessage).Error
-	}
-
-	if dbErr != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save user message"})
-		return
-	}
-
-	// 2. 转发请求给AI服务
+	// 1. 转发请求给AI服务
 	targetURL := "http://localhost:8000/api/v1/chat"
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
+	_ = writer.WriteField("prompt", prompt)
+	_ = writer.WriteField("is_first_message", c.PostForm("is_first_message"))
 
-	writer.WriteField("prompt", prompt)
-	writer.WriteField("is_first_message", strconv.FormatBool(isFirstMessage))
-
-	files := form.File["files"]
-	for _, fileHeader := range files {
-		h := make(textproto.MIMEHeader)
-		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="files"; filename="%s"`, fileHeader.Filename))
-		h.Set("Content-Type", fileHeader.Header.Get("Content-Type"))
-		part, _ := writer.CreatePart(h)
-		file, _ := fileHeader.Open()
-		io.Copy(part, file)
-		file.Close()
+	form, err := c.MultipartForm()
+	if err == nil {
+		files := form.File["files"]
+		for _, fileHeader := range files {
+			h := make(textproto.MIMEHeader)
+			h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="files"; filename="%s"`, fileHeader.Filename))
+			h.Set("Content-Type", fileHeader.Header.Get("Content-Type"))
+			part, _ := writer.CreatePart(h)
+			file, _ := fileHeader.Open()
+			io.Copy(part, file)
+			file.Close()
+		}
 	}
 	writer.Close()
 
 	proxyReq, _ := http.NewRequest("POST", targetURL, body)
 	proxyReq.Header.Set("Content-Type", writer.FormDataContentType())
-
 	client := &http.Client{Timeout: time.Second * 180}
 	resp, err := client.Do(proxyReq)
 	if err != nil {
@@ -117,32 +75,53 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode AI response"})
 		return
 	}
-
 	aiMessageContent := aiResp.TextExplanation
 	if aiMessageContent == "" {
 		aiMessageContent = aiResp.Response
 	}
 
-	// 3. 保存AI消息到数据库
-	aiMessage := ChatMessage{
-		ChatSessionID: session.ID,
-		Sender:        "ai",
-		Content:       aiMessageContent,
-		CreatedAt:     time.Now(),
-	}
-	h.DB.Create(&aiMessage)
+	// 2. 数据库操作
+	var session ChatSession
+	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
 
-	// 如果是第一条消息且AI返回了标题，更新会话标题
-	if isFirstMessage && aiResp.Title != "" {
-		h.DB.Model(&session).Update("title", aiResp.Title)
-		session.Title = aiResp.Title // 更新内存中的session对象以便返回
+	if isFirstMessage {
+		title := aiResp.Title
+		if title == "" {
+			title = "新的聊天"
+		}
+		session = ChatSession{UserID: userID, Title: title, CreatedAt: time.Now()}
+		if err := tx.Create(&session).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+			return
+		}
+	} else {
+		sessionID, _ := strconv.Atoi(c.PostForm("chat_session_id"))
+		if err := tx.First(&session, sessionID).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
+			return
+		}
 	}
 
-	// 4. 返回完整、最新的会话信息给前端
-	c.JSON(http.StatusOK, gin.H{
-		"session":     session,
-		"ai_response": aiResp, // 包含可视化等信息的原始AI响应
-	})
+	userMessage := ChatMessage{ChatSessionID: session.ID, Sender: "user", Content: prompt, CreatedAt: time.Now()}
+	aiMessage := ChatMessage{ChatSessionID: session.ID, Sender: "ai", Content: aiMessageContent, CreatedAt: time.Now()}
+	if err := tx.Create(&[]ChatMessage{userMessage, aiMessage}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save messages"})
+		return
+	}
+	tx.Commit()
+
+	// 3. 返回最新会话数据
+	h.DB.Preload("Messages").First(&session, session.ID)
+	c.JSON(http.StatusOK, gin.H{"session": session, "ai_response": aiResp})
+	fmt.Print(aiMessageContent)
 }
 
 // GetSessionsHandler 获取用户的所有聊天会话 (不含消息)
@@ -162,11 +141,15 @@ func (h *ChatHandler) GetSessionsHandler(c *gin.Context) {
 func (h *ChatHandler) GetMessagesHandler(c *gin.Context) {
 	userIDRaw, _ := c.Get("userID")
 	userID := uint(userIDRaw.(float64))
-	sessionID, _ := strconv.Atoi(c.Param("id"))
+	sessionIDStr := c.Param("id")
+	sessionID, err := strconv.Atoi(sessionIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid session ID"})
+		return
+	}
 
 	var messages []ChatMessage
-	// 验证用户权限并获取消息
-	err := h.DB.Joins("JOIN chat_sessions ON chat_sessions.id = chat_messages.chat_session_id").
+	err = h.DB.Joins("JOIN chat_sessions ON chat_sessions.id = chat_messages.chat_session_id").
 		Where("chat_sessions.user_id = ? AND chat_messages.chat_session_id = ?", userID, sessionID).
 		Order("chat_messages.created_at asc").
 		Find(&messages).Error
@@ -176,23 +159,4 @@ func (h *ChatHandler) GetMessagesHandler(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, messages)
-}
-
-// DeleteSessionHandler 删除一个会话及其所有消息
-func (h *ChatHandler) DeleteSessionHandler(c *gin.Context) {
-	userIDRaw, _ := c.Get("userID")
-	userID := uint(userIDRaw.(float64))
-	sessionID, _ := strconv.Atoi(c.Param("id"))
-
-	// GORM的级联删除会自动删除关联的ChatMessage
-	result := h.DB.Where("id = ? AND user_id = ?", sessionID, userID).Delete(&ChatSession{})
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete session"})
-		return
-	}
-	if result.RowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Session not found or permission denied"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "Session deleted successfully"})
 }
