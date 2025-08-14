@@ -17,11 +17,13 @@ type AuthHandler struct {
 	DB *gorm.DB
 }
 
+// **↓↓↓ 修改注册请求结构体 ↓↓↓**
 type RegisterRequest struct {
 	Username string `json:"username" binding:"required,min=4"`
 	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
+	Password string `json:"password"binding:"required,min=6"`
 	UserIDNo string `json:"user_id_no" binding:"required"`
+	Role     string `json:"role" binding:"required"` // **直接要求前端提供角色**
 }
 
 type LoginRequest struct {
@@ -29,11 +31,16 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
-// Register 处理新用户注册
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input: " + err.Error()})
+		return
+	}
+
+	// **↓↓↓ 验证角色是否合法 ↓↓↓**
+	if req.Role != "student" && req.Role != "teacher" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role specified"})
 		return
 	}
 
@@ -54,6 +61,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Email:        req.Email,
 		UserIDNo:     req.UserIDNo,
 		PasswordHash: string(hashedPassword),
+		Role:         req.Role, // **直接使用前端提供的角色**
 	}
 
 	if result := h.DB.Create(&newUser); result.Error != nil {
@@ -64,7 +72,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully"})
 }
 
-// Login 处理用户登录
+// Login 函数保持不变，它已经可以正确处理带有角色的Token
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -88,11 +96,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		displayName = user.Username
 	}
 
-	// 生成JWT
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":         user.ID,
 		"name":        user.Username,
-		"role":        user.Role, // <-- 在此加入角色信息
+		"role":        user.Role,
 		"displayName": displayName,
 		"avatarUrl":   user.AvatarURL,
 		"exp":         time.Now().Add(time.Hour * 24 * 7).Unix(),

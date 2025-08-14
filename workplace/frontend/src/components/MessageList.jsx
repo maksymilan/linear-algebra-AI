@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import AiResponse from './AiResponse';
 
+// 1. 已恢复 FileIcon 组件
 const FileIcon = () => (
     <svg className="file-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
@@ -10,6 +11,7 @@ const FileIcon = () => (
     </svg>
 );
 
+// 2. 已恢复完整的 Avatar 组件逻辑，支持自定义头像URL
 const Avatar = ({ sender, user }) => {
     const aiAvatar = (
         <div className="avatar ai-avatar">
@@ -53,21 +55,23 @@ const MessageList = ({ messages, isLoading, user }) => {
     scrollToBottom();
   }, [messages, isLoading]);
 
-  // **关键修复：在渲染前过滤掉所有来自 "system" 的消息**
+  // 3. 保留了必要的修复：过滤掉 system 消息
   const visibleMessages = messages.filter(msg => msg.sender !== 'system');
 
   return (
     <div className="messages-list">
-      {visibleMessages.map((msg) => (
-        <div key={msg.id} className={`message-container ${msg.sender === 'user' ? 'user' : 'ai'}`}>
+      {visibleMessages.map((msg, index) => (
+        <div key={msg.id || `msg-${index}`} className={`message-container ${msg.sender === 'user' ? 'user' : 'ai'}`}>
             <Avatar sender={msg.sender} user={user} />
             <div className={`message ${msg.sender === 'user' ? 'user-message' : 'ai-message'}`}>
-                {msg.text && (
+                {/* 4. 增强健壮性，同时兼容 text 和 content 字段 */}
+                {(msg.text || msg.content) && (
                     msg.sender === 'ai' 
-                        ? <AiResponse content={msg.text} /> 
-                        : <UserMessageContent text={msg.text} />
+                        ? <AiResponse content={msg.text || msg.content} /> 
+                        : <UserMessageContent text={msg.text || msg.content} />
                 )}
 
+                {/* 5. 已恢复文件链接的渲染逻辑 */}
                 {msg.files && msg.files.length > 0 && (
                     <div className="message-files-container">
                     {msg.files.map((file, fileIndex) => (

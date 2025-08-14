@@ -1,0 +1,129 @@
+/* src/pages/SubmitAssignmentPage.css */
+
+.submit-page-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f0f2f5;
+    padding: 2rem;
+    box-sizing: border-box;
+}
+
+.submit-page-card {
+    width: 100%;
+    max-width: 800px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    padding: 2.5rem 3rem;
+    position: relative;
+}
+
+.submit-page-header h1 {
+    font-size: 1.8rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.problem-panel {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    margin-bottom: 2rem;
+}
+.problem-panel p {
+    margin-top: 0;
+}
+
+.upload-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.file-upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 2.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.file-upload-area:hover {
+    border-color: #007bff;
+    background-color: #f8f9fa;
+}
+
+.file-upload-area .upload-icon-wrapper {
+    width: 50px;
+    height: 50px;
+    background-color: #e9ecef;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 1rem auto;
+    color: #495057;
+}
+
+.file-upload-area p {
+    margin: 0;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.selected-file-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: #e9ecef;
+    border-radius: 20px;
+    font-weight: 500;
+    color: #212529;
+}
+
+.upload-form input[type="file"] {
+    display: none;
+}
+
+.submit-button {
+    padding: 0.8rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    background-color: #28a745;
+    color: white;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.submit-button:disabled {
+    background-color: #a3d9b1;
+    cursor: not-allowed;
+}
+
+.submission-success-view {
+    text-align: center;
+    padding: 3rem 0;
+}
+.submission-success-view svg {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 1rem;
+}
+.submission-success-view h2 {
+    font-size: 1.8rem;
+    color: #28a745;
+}
+
+.back-button { /* 保持返回按钮样式 */
+    position: absolute;
+    top: 2.5rem;
+    left: 3rem;
+}

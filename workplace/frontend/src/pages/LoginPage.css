@@ -192,3 +192,76 @@
     padding: 2rem;
   }
 }
+/* --- 新增：角色选择器样式 (匹配示例代码) --- */
+.form-group.role-selection {
+    text-align: left;
+    margin-bottom: 2rem;
+}
+
+.form-group.role-selection > label {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: block;
+    color: var(--color-dark-text);
+}
+
+.role-options {
+    display: flex;
+    gap: 1rem;
+}
+
+.role-options label {
+    flex: 1;
+    position: relative;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    background-color: #f8f9fa;
+}
+
+.role-options label:hover {
+    border-color: var(--color-accent);
+    background-color: #fff;
+}
+
+.role-options input[type="radio"] {
+    /* 完全隐藏原生单选按钮 */
+    position: absolute;
+    opacity: 0;
+}
+
+.role-options span {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--color-secondary-text);
+    transition: color 0.2s ease-in-out;
+}
+
+/* **选中时的样式** */
+.role-options input[type="radio"]:checked + span {
+    color: var(--color-dark-text);
+}
+
+.role-options label {
+    /* 使用伪元素创建选中指示器 */
+    position: relative;
+}
+
+.role-options input[type="radio"]:checked ~ span::after {
+    content: '✔';
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-accent);
+    font-weight: bold;
+}
+
+.role-options input[type="radio"]:checked ~ label {
+    border-color: var(--color-accent);
+    background-color: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}

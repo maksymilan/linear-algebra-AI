@@ -1,0 +1,108 @@
+/* src/pages/ViewSubmissionsPage.css */
+
+.view-submissions-container {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.view-submissions-header {
+    margin-bottom: 2.5rem;
+}
+.view-submissions-header h1 {
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.problem-display-teacher {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+
+.submissions-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+}
+
+.submission-card-item {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    grid-template-areas: 
+        "info actions"
+        "comment comment";
+    gap: 1rem 1.5rem;
+    transition: box-shadow 0.2s;
+}
+.submission-card-item:hover {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+.submission-info {
+    grid-area: info;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.submission-info h4 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+.submission-info span {
+    color: #6c757d;
+}
+
+.status-tag {
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+}
+.status-tag.submitted {
+    background-color: #fff0c2;
+    color: #8c6d00;
+}
+.status-tag.graded {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.submission-actions {
+    grid-area: actions;
+    align-self: center;
+}
+.view-file-btn {
+    padding: 0.6rem 1rem;
+    /* ... 按钮样式 ... */
+}
+
+.submission-comment-area {
+    grid-area: comment;
+    border-top: 1px solid #e9ecef;
+    padding-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.submission-comment-area textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    border: 1px solid #ced4da;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.save-comment-btn {
+    align-self: flex-end; /* 按钮靠右 */
+    /* ... 按钮样式 ... */
+}

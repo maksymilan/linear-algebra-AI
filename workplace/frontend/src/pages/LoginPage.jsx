@@ -8,6 +8,7 @@ import FormInput from '../components/FormInput';
 import PasswordInput from '../components/PasswordInput';
 import './LoginPage.css';
 
+// 登录表单组件 (无变化)
 const LoginForm = ({ onLogin, loading, error, onSwitch, formValues, handleInputChange }) => (
   <motion.div
     key="login"
@@ -46,6 +47,7 @@ const LoginForm = ({ onLogin, loading, error, onSwitch, formValues, handleInputC
   </motion.div>
 );
 
+// 注册表单组件 (使用您提供的UI结构)
 const RegisterForm = ({ onRegister, loading, error, onSwitch, formValues, handleInputChange }) => (
   <motion.div
     key="register"
@@ -57,6 +59,33 @@ const RegisterForm = ({ onRegister, loading, error, onSwitch, formValues, handle
     <h1>创建新账户</h1>
     <p className="form-subtitle">加入我们，开启智能学习新篇章。</p>
     <form onSubmit={onRegister}>
+      {/* --- 角色选择 --- */}
+      <div className="form-group role-selection">
+        <label>您的身份是？</label>
+        <div className="role-options">
+            <label>
+                <input 
+                    type="radio" 
+                    name="role" 
+                    value="student" 
+                    checked={formValues.role === 'student'} 
+                    onChange={handleInputChange} 
+                />
+                <span>学生</span>
+            </label>
+            <label>
+                <input 
+                    type="radio" 
+                    name="role" 
+                    value="teacher" 
+                    checked={formValues.role === 'teacher'} 
+                    onChange={handleInputChange}
+                />
+                <span>教师</span>
+            </label>
+        </div>
+      </div>
+
       <FormInput 
         label="用户名"
         name="username"
@@ -107,12 +136,13 @@ function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // **关键修复：使用 state 来管理表单数据**
+  // 在表单状态中加入 role，并设置默认值为 'student'
   const [formValues, setFormValues] = useState({
     username: '',
     password: '',
     email: '',
-    userIdNo: ''
+    userIdNo: '',
+    role: 'student' // 默认角色
   });
 
   const { loginAction, registerAction } = useAuth();
@@ -143,17 +173,18 @@ function LoginPage() {
         setError(result.error);
       }
     } else {
+      // 注册时，传递整个 formValues 对象
       result = await registerAction({ 
         username: formValues.username, 
         email: formValues.email, 
         password: formValues.password, 
-        user_id_no: formValues.userIdNo // 后端需要 'user_id_no'
+        user_id_no: formValues.userIdNo,
+        role: formValues.role // 传递角色
       });
       if (result.success) {
         alert('注册成功！请登录。');
         setIsLoginView(true);
-        // 清空密码和邮箱，保留用户名
-        setFormValues(prev => ({ ...prev, password: '', email: '', userIdNo: '' }));
+        setFormValues(prev => ({ ...prev, password: '', email: '', userIdNo: '', role: 'student' }));
       } else {
         setError(result.error);
       }

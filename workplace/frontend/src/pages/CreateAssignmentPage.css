@@ -1,0 +1,200 @@
+/* src/pages/CreateAssignmentPage.css */
+/* 最终修正版 - 浅色居中主题 & 样式隔离 */
+
+/* --- 页面根容器 ---
+   这是解决CSS冲突的关键。所有样式都将基于这个唯一的父类。
+*/
+.page-assignment-creator {
+    background-color: #f0f2f5; 
+    padding: 4rem 2rem;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+/* --- 主容器：居中卡片 --- */
+.creator-card {
+    display: flex;
+    flex-direction: column;
+    max-width: 1280px;
+    width: 100%;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #dcdfe6;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+/* --- 顶部操作栏 --- */
+.creator-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    height: 64px;
+    border-bottom: 1px solid #e4e7ed;
+}
+
+.creator-header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.creator-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #303133;
+    margin: 0;
+}
+
+/* --- 主体内容区：双栏布局 --- */
+.creator-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+    padding: 2rem;
+}
+
+/* --- 表单元素 --- */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group:last-child {
+    margin-bottom: 0;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #606266;
+}
+
+.form-input,
+.form-textarea {
+    width: 100%;
+    background-color: #fdfdff;
+    border: 1px solid #dcdfe6;
+    color: #303133;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+    outline: none;
+    border-color: #409eff;
+    box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.2);
+}
+
+.form-textarea {
+    min-height: 350px;
+    resize: vertical;
+}
+
+/* --- 预览区域 --- */
+.preview-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.preview-box {
+    flex-grow: 1;
+    background-color: #f5f7fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px dashed #dcdfe6;
+    overflow-y: auto;
+}
+
+/* --- 按钮和控件 --- */
+.creator-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.creator-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 主操作按钮（发布）*/
+.btn-publish {
+    background-color: #409eff;
+    color: white;
+    border-color: #409eff;
+}
+.btn-publish:hover:not(:disabled) {
+    background-color: #66b1ff;
+    border-color: #66b1ff;
+}
+
+/* 次要/返回按钮 */
+.btn-secondary {
+    background-color: #f4f4f5;
+    color: #909399;
+    border-color: #dcdfe6;
+}
+.btn-secondary:hover:not(:disabled) {
+    color: #409eff;
+    border-color: #c6e2ff;
+    background-color: #ecf5ff;
+}
+
+/* 文件上传按钮 */
+.file-upload-label {
+    background-color: #ffffff;
+    color: #606266;
+    border-color: #dcdfe6;
+}
+.file-upload-label:hover {
+    color: #409eff;
+    border-color: #c6e2ff;
+    background-color: #ecf5ff;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: #909399;
+}
+
+.remove-file-button {
+    background: none;
+    border: none;
+    color: #f56c6c;
+    cursor: pointer;
+    padding: 0;
+    font-size: 1rem;
+}
+.remove-file-button:hover {
+    color: #f89898;
+}
+
+/* 错误提示 */
+.creator-error {
+    margin-top: 1.5rem;
+    color: #f56c6c;
+    text-align: center;
+    font-weight: 500;
+    background-color: #fef0f0;
+    border: 1px solid #fde2e2;
+    padding: 0.75rem;
+    border-radius: 8px;
+}

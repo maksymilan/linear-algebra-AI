@@ -3,12 +3,9 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net/http"
-	"time"
-
-	"workplace/web_service/assignment" // 导入新包
+	"workplace/web_service/assignment"
 	"workplace/web_service/auth"
 	"workplace/web_service/chat"
 	"workplace/web_service/config"
@@ -19,77 +16,65 @@ import (
 )
 
 func main() {
+	// ... (上方代码保持不变) ...
 	db := config.ConnectDB()
 	r := gin.Default()
-	r.MaxMultipartMemory = 8 << 24 // 8 MiB
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:5174"}, // 允许的前端地址
+		AllowAllOrigins:  true,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
 	}))
-
 	authHandler := &auth.AuthHandler{DB: db}
 	gradingHandler := &grading.GradingHandler{DB: db}
 	chatHandler := &chat.ChatHandler{DB: db}
-	assignmentHandler := &assignment.AssignmentHandler{DB: db} // 初始化新Handler
-
+	assignmentHandler := &assignment.AssignmentHandler{DB: db}
 	api := r.Group("/api")
 	{
-		// 认证路由
-		authRoutes := api.Group("/auth")
+		api.POST("/auth/register", authHandler.Register)
+		api.POST("/auth/login", authHandler.Login)
+		authed := api.Group("/")
+		authed.Use(auth.AuthMiddleware())
 		{
-			authRoutes.POST("/register", authHandler.Register)
-			authRoutes.POST("/login", authHandler.Login)
+			authed.POST("/chat/send", chatHandler.SendMessageHandler)
+			authed.GET("/chat/sessions", chatHandler.GetSessionsHandler)
+			authed.GET("/chat/messages/:id", chatHandler.GetMessagesHandler)
+			authed.POST("/grading/upload", gradingHandler.GradeHomeworkHandler)
+			authed.POST("/grading/ocr", gradingHandler.OcrHandler)
+			// **↓↓↓ 新增的答疑路由 ↓↓↓**
+			authed.POST("/grading/followup", gradingHandler.StartFollowUpChatHandler)
 		}
-
-		// 聊天路由
-		chatRoutes := api.Group("/chat")
-		chatRoutes.Use(auth.AuthMiddleware())
+		// ... (下方路由保持不变) ...
+		teacherRoutes := api.Group("/teacher")
+		teacherRoutes.Use(auth.AuthMiddleware(), auth.TeacherMiddleware())
 		{
-			chatRoutes.POST("/send", chatHandler.SendMessageHandler)
-			chatRoutes.GET("/sessions", chatHandler.GetSessionsHandler)
-			chatRoutes.GET("/messages/:id", chatHandler.GetMessagesHandler)
+			teacherRoutes.POST("/assignments", assignmentHandler.CreateAssignmentHandler)
+			teacherRoutes.GET("/assignments", assignmentHandler.ListAssignmentsHandler)
+			teacherRoutes.GET("/assignments/:id", assignmentHandler.GetAssignmentHandler)
+			teacherRoutes.GET("/submission/file/:id", assignmentHandler.ServeSubmissionFileHandler)
+			teacherRoutes.POST("/submission/:id/comment", assignmentHandler.AddCommentHandler)
 		}
-
-		// 自主批改练习路由 (与作业分离)
-		gradingRoutes := api.Group("/grading")
-		gradingRoutes.Use(auth.AuthMiddleware())
+		studentRoutes := api.Group("/student")
+		studentRoutes.Use(auth.AuthMiddleware(), auth.StudentMiddleware())
 		{
-			gradingRoutes.POST("/upload", gradingHandler.GradeHomeworkHandler)
-			gradingRoutes.POST("/start_follow_up_chat", gradingHandler.StartFollowUpChatHandler)
-			gradingRoutes.POST("/ocr", gradingHandler.OcrHandler)
+			studentRoutes.GET("/assignments", assignmentHandler.ListAssignmentsHandler)
+			studentRoutes.GET("/assignments/:id", assignmentHandler.GetAssignmentHandler)
+			studentRoutes.POST("/assignments/submit", assignmentHandler.SubmitAssignmentHandler)
 		}
-
-		// 作业系统路由 (新)
-		assignmentRoutes := api.Group("/assignments")
-		assignmentRoutes.Use(auth.AuthMiddleware())
-		{
-			assignmentRoutes.POST("/", assignmentHandler.CreateAssignmentHandler)       // 老师创建
-			assignmentRoutes.GET("/", assignmentHandler.ListAssignmentsHandler)         // 学生/老师查看列表
-			assignmentRoutes.GET("/:id", assignmentHandler.GetAssignmentHandler)        // 学生/老师查看详情
-			assignmentRoutes.POST("/submit", assignmentHandler.SubmitAssignmentHandler) // 学生提交
-		}
-
-		// 数据库健康检查
 		api.GET("/health/db", func(c *gin.Context) {
 			sqlDB, err := db.DB()
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to get database object"})
+				c.JSON(http.StatusInternalServerError, gin.H{"status": "unhealthy", "error": "failed to get db instance"})
 				return
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			if err = sqlDB.PingContext(ctx); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Database connection failed"})
+			err = sqlDB.Ping()
+			if err != nil {
+				c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "error": err.Error()})
 				return
 			}
-			c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Database connection is healthy"})
+			c.JSON(http.StatusOK, gin.H{"status": "healthy"})
 		})
 	}
-
 	log.Println("Starting server on port :8080")
 	r.Run(":8080")
 }

@@ -3,13 +3,14 @@
 package assignment
 
 import (
-	"bytes"
-	"encoding/json"
-	"mime/multipart"
+	"fmt"
+	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
 	"time"
-
-	"workplace/web_service/auth" // 导入auth包以获取User模型
+	"workplace/web_service/auth"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -19,17 +20,52 @@ type AssignmentHandler struct {
 	DB *gorm.DB
 }
 
-// CreateAssignmentHandler (老师) 创建新作业
+// CreateAssignmentHandler (老师) 创建新作业，支持文件上传
 func (h *AssignmentHandler) CreateAssignmentHandler(c *gin.Context) {
-	var assignment Assignment
-	if err := c.ShouldBindJSON(&assignment); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+	// 从multipart form获取数据
+	title := c.PostForm("title")
+	problemText := c.PostForm("problemText")
+
+	if title == "" || problemText == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Title and problem text are required"})
 		return
 	}
 
 	userIDRaw, _ := c.Get("userID")
-	assignment.TeacherID = uint(userIDRaw.(float64))
 
+	assignment := Assignment{
+		TeacherID:   uint(userIDRaw.(float64)),
+		Title:       title,
+		ProblemText: problemText,
+		CreatedAt:   time.Now(),
+	}
+
+	// 处理可选的文件上传
+	file, err := c.FormFile("problemFile")
+	// 如果 err == nil，说明有文件上传
+	if err == nil {
+		uploadDir := "./uploads/assignments"
+		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
+			return
+		}
+
+		// 创建一个唯一的文件名以避免冲突
+		newFileName := fmt.Sprintf("assignment-%d-%d-%s", assignment.TeacherID, time.Now().Unix(), filepath.Base(file.Filename))
+		filePath := filepath.Join(uploadDir, newFileName)
+
+		if err := c.SaveUploadedFile(file, filePath); err != nil {
+			log.Printf("Error saving assignment file: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+			return
+		}
+
+		// 将文件信息保存到assignment对象中
+		assignment.ProblemFilePath = filePath
+		assignment.ProblemFileName = file.Filename
+	}
+
+	// 将assignment对象存入数据库
 	if err := h.DB.Create(&assignment).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create assignment"})
 		return
@@ -47,76 +83,131 @@ func (h *AssignmentHandler) ListAssignmentsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, assignments)
 }
 
-// GetAssignmentHandler (学生/老师) 获取单个作业详情
+// GetAssignmentHandler (学生/老师) 获取单个作业详情及其提交情况
 func (h *AssignmentHandler) GetAssignmentHandler(c *gin.Context) {
 	id := c.Param("id")
 	var assignment Assignment
+	// 预加载Submissions
 	if err := h.DB.Preload("Submissions").First(&assignment, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
 		return
 	}
 
-	// 为每个提交填充学生姓名
-	for i := range assignment.Submissions {
-		var user auth.User
-		h.DB.First(&user, assignment.Submissions[i].StudentID)
-		assignment.Submissions[i].StudentName = user.Username
+	// 如果存在提交，则查询并附加提交者的用户名
+	if len(assignment.Submissions) > 0 {
+		studentIDs := []uint{}
+		for _, sub := range assignment.Submissions {
+			studentIDs = append(studentIDs, sub.StudentID)
+		}
+
+		var users []auth.User
+		userMap := make(map[uint]string)
+		if len(studentIDs) > 0 {
+			h.DB.Model(&auth.User{}).Where("id IN ?", studentIDs).Find(&users)
+			for _, user := range users {
+				userMap[user.ID] = user.Username // 你也可以使用DisplayName等其他字段
+			}
+		}
+
+		// 将用户名附加到每个提交记录上
+		for i := range assignment.Submissions {
+			assignment.Submissions[i].StudentName = userMap[assignment.Submissions[i].StudentID]
+		}
 	}
 
 	c.JSON(http.StatusOK, assignment)
 }
 
-// SubmitAssignmentHandler (学生) 提交作业
+// SubmitAssignmentHandler (学生) 提交作业文件
 func (h *AssignmentHandler) SubmitAssignmentHandler(c *gin.Context) {
-	var submission Submission
-	if err := c.ShouldBindJSON(&submission); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-		return
-	}
-	userIDRaw, _ := c.Get("userID")
-	submission.StudentID = uint(userIDRaw.(float64))
-	submission.CreatedAt = time.Now()
-
-	// 1. 获取题目原文
-	var assignment Assignment
-	if err := h.DB.First(&assignment, submission.AssignmentID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
-		return
-	}
-
-	// 2. 调用AI服务进行批改
-	targetURL := "http://localhost:8000/api/v1/grade"
-	formBody := new(bytes.Buffer)
-	writer := multipart.NewWriter(formBody)
-	_ = writer.WriteField("problem_text", assignment.ProblemText)
-	_ = writer.WriteField("solution_text", submission.SolutionText)
-	writer.Close()
-	req, _ := http.NewRequest("POST", targetURL, formBody)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	client := &http.Client{Timeout: time.Second * 180}
-	resp, err := client.Do(req)
+	assignmentIDStr := c.PostForm("assignmentId")
+	assignmentID, err := strconv.Atoi(assignmentIDStr)
 	if err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AI service is unreachable"})
-		return
-	}
-	defer resp.Body.Close()
-
-	var aiResp struct {
-		Correction string `json:"correction"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&aiResp); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode AI response"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid assignment ID"})
 		return
 	}
 
-	// 3. 将批改结果存入 submission
-	submission.Correction = aiResp.Correction
-	submission.Status = "graded"
+	file, err := c.FormFile("solutionFile")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No file is received"})
+		return
+	}
+
+	userIDRaw, _ := c.Get("userID")
+	userID := uint(userIDRaw.(float64))
+
+	uploadDir := "./uploads/submissions"
+	if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
+		return
+	}
+
+	newFileName := fmt.Sprintf("%d-%d-%d-%s", assignmentID, userID, time.Now().Unix(), filepath.Base(file.Filename))
+	filePath := filepath.Join(uploadDir, newFileName)
+
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		log.Printf("Error saving file: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+		return
+	}
+
+	submission := Submission{
+		AssignmentID:     uint(assignmentID),
+		StudentID:        userID,
+		SolutionFilePath: filePath,
+		SolutionFileName: file.Filename,
+		Status:           "submitted",
+		CreatedAt:        time.Now(),
+	}
+
+	if err := h.DB.Create(&submission).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save submission record"})
+		return
+	}
+
+	c.JSON(http.StatusOK, submission)
+}
+
+// ServeSubmissionFileHandler 提供文件给前端下载或查看
+func (h *AssignmentHandler) ServeSubmissionFileHandler(c *gin.Context) {
+	submissionID := c.Param("id")
+	var submission Submission
+	if err := h.DB.First(&submission, submissionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Submission not found"})
+		return
+	}
+	// Content-Disposition: inline 表示浏览器会尝试直接显示文件（如PDF,图片），而不是强制下载
+	c.Header("Content-Disposition", fmt.Sprintf("inline; filename=%s", submission.SolutionFileName))
+	// 动态设置Content-Type可以改善体验，但为简单起见，此处假设都为PDF
+	c.Header("Content-Type", "application/pdf")
+	c.File(submission.SolutionFilePath)
+}
+
+// AddCommentHandler (老师) 为提交添加评语
+func (h *AssignmentHandler) AddCommentHandler(c *gin.Context) {
+	submissionID := c.Param("id")
+
+	var input struct {
+		Comment string `json:"comment" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Comment text is required"})
+		return
+	}
+
+	var submission Submission
+	if err := h.DB.First(&submission, submissionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Submission not found"})
+		return
+	}
+
+	submission.Comment = input.Comment
+	submission.Status = "graded" // 添加评语后，状态变为“已批改”
 	submission.GradedAt = time.Now()
 
-	// 4. 保存到数据库
-	if err := h.DB.Create(&submission).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save submission"})
+	if err := h.DB.Save(&submission).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save comment"})
 		return
 	}
 

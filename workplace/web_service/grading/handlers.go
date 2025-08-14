@@ -11,7 +11,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
-	"strconv"
 	"time"
 	"workplace/web_service/chat" // 导入chat模型
 
@@ -28,7 +27,7 @@ type AIGradeResponse struct {
 	Error      string `json:"error,omitempty"`
 }
 
-// GradeHomeworkHandler 现在只负责调用AI获取批改结果，并将其返回给前端
+// GradeHomeworkHandler 保持不变, 只负责调用AI获取批改结果
 func (h *GradingHandler) GradeHomeworkHandler(c *gin.Context) {
 	problemText := c.PostForm("problemText")
 	solutionText := c.PostForm("solutionText")
@@ -57,16 +56,15 @@ func (h *GradingHandler) GradeHomeworkHandler(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
-	var aiResp AIGradeResponse
-	// 我们需要先读取响应体，然后再重新封装一个io.ReadCloser给JSON解码器
 	responseBody, _ := io.ReadAll(resp.Body)
 	log.Printf("AI Service Response: %s", string(responseBody))
-	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
 
-	if err := json.NewDecoder(resp.Body).Decode(&aiResp); err != nil {
+	var aiResp AIGradeResponse
+	if err := json.Unmarshal(responseBody, &aiResp); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode AI response"})
 		return
 	}
+
 	if aiResp.Error != "" {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": aiResp.Error})
 		return
@@ -80,117 +78,95 @@ func (h *GradingHandler) GradeHomeworkHandler(c *gin.Context) {
 	})
 }
 
-// StartFollowUpChatHandler 创建一个与特定作业批改相关联的聊天会话
+// StartFollowUpChatHandler (已重构)
+// 接收作业上下文和用户的第一条问题，创建会话，保存所有消息，然后返回会话ID
 func (h *GradingHandler) StartFollowUpChatHandler(c *gin.Context) {
 	userIDRaw, _ := c.Get("userID")
 	userID := uint(userIDRaw.(float64))
 
-	problemText := c.PostForm("problemText")
-	solutionText := c.PostForm("solutionText")
-	correction := c.PostForm("correction")
+	var req struct {
+		ProblemText    string `form:"problemText"`
+		SolutionText   string `form:"solutionText"`
+		CorrectionText string `form:"correctionText"`
+		NewQuestion    string `form:"newQuestion"`
+	}
 
-	// 1. 调用AI服务获取带上下文的系统Prompt
-	targetURL := "http://localhost:8000/api/v1/start_grading_chat"
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	_ = writer.WriteField("problem_text", problemText)
-	_ = writer.WriteField("solution_text", solutionText)
-	_ = writer.WriteField("correction_text", correction)
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: " + err.Error()})
+		return
+	}
+
+	tx := h.DB.Begin()
+
+	// 1. 创建新的聊天会话
+	newSession := chat.ChatSession{
+		UserID:    userID,
+		Title:     "作业批改答疑",
+		CreatedAt: time.Now(),
+	}
+	if err := tx.Create(&newSession).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create chat session"})
+		return
+	}
+
+	// 2. 将完整的对话历史（包括批改上下文）发送给AI
+	targetURL := "http://localhost:8000/api/v1/grading/chat"
+	aiBody := &bytes.Buffer{}
+	writer := multipart.NewWriter(aiBody)
+	_ = writer.WriteField("problem_text", req.ProblemText)
+	_ = writer.WriteField("solution_text", req.SolutionText)
+	_ = writer.WriteField("correction_text", req.CorrectionText)
+	_ = writer.WriteField("new_question", req.NewQuestion)
+	// 在这种模式下，我们不需要发送 chat_history，因为这是会话的开始
+	_ = writer.WriteField("chat_history", "[]")
 	writer.Close()
 
-	proxyReq, _ := http.NewRequest("POST", targetURL, body)
+	proxyReq, _ := http.NewRequest("POST", targetURL, aiBody)
 	proxyReq.Header.Set("Content-Type", writer.FormDataContentType())
-	client := &http.Client{}
+	client := &http.Client{Timeout: time.Second * 180}
 	resp, err := client.Do(proxyReq)
+
 	if err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AI service is unreachable"})
 		return
 	}
 	defer resp.Body.Close()
 
-	var aiContextResp struct {
-		SystemPrompt string `json:"system_prompt"`
+	responseBody, _ := io.ReadAll(resp.Body)
+	var aiResp struct {
+		Response string `json:"response"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&aiContextResp); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode AI context response"})
+	if err := json.Unmarshal(responseBody, &aiResp); err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode AI response"})
 		return
 	}
 
-	// 2. 在数据库中创建一个新的聊天会话
-	newChatSession := chat.ChatSession{
-		UserID:    userID,
-		Title:     "作业批改后答疑", // 也可以基于题目生成一个更具体的标题
-		CreatedAt: time.Now(),
+	// 3. 将上下文、用户问题和AI回答作为消息存入数据库
+	// 注意：为了保持对话的流畅性，我们将上下文合并为一条对用户不可见的 "system" 消息
+	contextMessage := fmt.Sprintf("### 原始题目\n%s\n\n### 学生的解答\n%s\n\n### 你给出的批改意见\n%s", req.ProblemText, req.SolutionText, req.CorrectionText)
+
+	messagesToSave := []chat.ChatMessage{
+		{ChatSessionID: newSession.ID, Sender: "system", Content: contextMessage, CreatedAt: time.Now()},
+		{ChatSessionID: newSession.ID, Sender: "user", Content: req.NewQuestion, CreatedAt: time.Now().Add(time.Second)},
+		{ChatSessionID: newSession.ID, Sender: "ai", Content: aiResp.Response, CreatedAt: time.Now().Add(2 * time.Second)},
 	}
-	if err := h.DB.Create(&newChatSession).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create chat session"})
+
+	if err := tx.Create(&messagesToSave).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save messages"})
 		return
 	}
 
-	// 3. 将带有作业上下文的Prompt作为第一条系统消息存入数据库
-	systemMessage := chat.ChatMessage{
-		ChatSessionID: newChatSession.ID,
-		Sender:        "system", // 特殊的发送者
-		Content:       aiContextResp.SystemPrompt,
-		CreatedAt:     time.Now(),
-	}
-	if err := h.DB.Create(&systemMessage).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save system message"})
-		return
-	}
+	tx.Commit()
 
-	// 4. 返回新创建的聊天会话ID给前端
-	c.JSON(http.StatusOK, gin.H{"chatSessionId": newChatSession.ID})
+	// 4. 返回新会话的ID，前端将用此ID跳转
+	c.JSON(http.StatusOK, gin.H{"chatSessionId": newSession.ID})
 }
 
-// GetHistoryHandler 获取当前用户的批改历史 (此功能在新流程中可以被弱化或移除)
-func (h *GradingHandler) GetHistoryHandler(c *gin.Context) {
-	userIDRaw, _ := c.Get("userID")
-	userIDFloat, ok := userIDRaw.(float64)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type in token"})
-		return
-	}
-	userID := uint(userIDFloat)
-
-	var results []GradeResult
-	if err := h.DB.Where("user_id = ?", userID).Order("created_at desc").Find(&results).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve history"})
-		return
-	}
-	c.JSON(http.StatusOK, results)
-}
-
-// DeleteResultHandler 删除一条批改记录
-func (h *GradingHandler) DeleteResultHandler(c *gin.Context) {
-	userIDRaw, _ := c.Get("userID")
-	userIDFloat, ok := userIDRaw.(float64)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type in token"})
-		return
-	}
-	userID := uint(userIDFloat)
-
-	resultID, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid result ID"})
-		return
-	}
-
-	result := h.DB.Where("id = ? AND user_id = ?", resultID, userID).Delete(&GradeResult{})
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete result"})
-		return
-	}
-	if result.RowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Result not found or you don't have permission to delete it"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Result deleted successfully"})
-}
-
-// OcrHandler 用于识别内容的处理器
+// OcrHandler 保持不变
 func (h *GradingHandler) OcrHandler(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
