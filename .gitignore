@@ -2,4 +2,19 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+/web_service/.env
+
+# 忽略所有层级下的环境变量文件
 .env
+.env.*
+**/.env
+
+# 忽略所有层级下的虚拟环境文件夹
+venv/
+.venv/
+env/
+test_user
+uploads/
+*.log
+log/
