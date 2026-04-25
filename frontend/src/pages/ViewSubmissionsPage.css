@@ -1,0 +1,203 @@
+/* src/pages/ViewSubmissionsPage.css - 极简黑白灰主题 */
+
+.view-submissions-container {
+    padding: 2.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: #F1F3F5;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+.view-submissions-container .back-button {
+    background: #ffffff;
+    border: 1px solid #DEE2E6;
+    padding: 0.45rem 0.95rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #495057;
+    font-family: inherit;
+    transition: all 0.15s ease-in-out;
+    margin-bottom: 1rem;
+}
+.view-submissions-container .back-button:hover {
+    color: #212529;
+    border-color: #212529;
+    background-color: #F8F9FA;
+}
+
+.view-submissions-header {
+    margin-bottom: 2rem;
+    background-color: #ffffff;
+    border: 1px solid #DEE2E6;
+    border-radius: 12px;
+    padding: 2rem;
+}
+.view-submissions-header h1 {
+    font-size: 1.6rem;
+    margin: 0 0 1.5rem 0;
+    color: #212529;
+    font-weight: 600;
+}
+
+.problem-display-teacher {
+    background: #F8F9FA;
+    padding: 1.25rem 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #E9ECEF;
+    color: #212529;
+}
+.problem-display-teacher strong {
+    color: #212529;
+    display: inline-block;
+    margin-bottom: 0.5rem;
+}
+
+.submissions-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+}
+
+.submission-card-item {
+    background: #ffffff;
+    border: 1px solid #DEE2E6;
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+        "info actions"
+        "comment comment";
+    gap: 1rem 1.5rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+.submission-card-item:hover {
+    border-color: #ADB5BD;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.submission-info {
+    grid-area: info;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.submission-info h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #212529;
+    font-weight: 600;
+}
+.submission-info span {
+    color: #868E96;
+    font-size: 0.9rem;
+}
+
+.status-tag {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.22rem 0.7rem;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+}
+.status-tag.submitted {
+    background-color: #F1F3F5;
+    color: #495057;
+    border: 1px solid #DEE2E6;
+}
+.status-tag.graded {
+    background-color: #212529;
+    color: #ffffff;
+    border: 1px solid #212529;
+}
+
+.submission-actions {
+    grid-area: actions;
+    align-self: center;
+}
+.view-file-btn {
+    padding: 0.55rem 1rem;
+    border: 1px solid #DEE2E6;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #495057;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease-in-out;
+}
+.view-file-btn:hover:not(:disabled) {
+    color: #212529;
+    border-color: #212529;
+    background: #F8F9FA;
+}
+.view-file-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.submission-comment-area {
+    grid-area: comment;
+    border-top: 1px solid #E9ECEF;
+    padding-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.submission-comment-area textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    border: 1px solid #DEE2E6;
+    font-size: 0.95rem;
+    font-family: inherit;
+    line-height: 1.5;
+    resize: vertical;
+    background: #ffffff;
+    color: #212529;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+.submission-comment-area textarea:focus {
+    outline: none;
+    border-color: #212529;
+    box-shadow: 0 0 0 1px #212529;
+}
+
+.save-comment-btn {
+    align-self: flex-end;
+    padding: 0.5rem 1.1rem;
+    border: 1px solid #212529;
+    border-radius: 8px;
+    background-color: #212529;
+    color: #ffffff;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease-in-out;
+}
+.save-comment-btn:hover:not(:disabled) {
+    background-color: #000000;
+    border-color: #000000;
+}
+.save-comment-btn:disabled {
+    background-color: #ADB5BD;
+    border-color: #ADB5BD;
+    cursor: not-allowed;
+}
+
+.no-submissions-text {
+    text-align: center;
+    color: #868E96;
+    padding: 2.5rem 1rem;
+    background: #ffffff;
+    border: 1px dashed #DEE2E6;
+    border-radius: 12px;
+}

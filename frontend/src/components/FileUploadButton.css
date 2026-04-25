@@ -1,0 +1,45 @@
+.upload-button-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* 隐藏原生的文件上传按钮 */
+.upload-button-wrapper input[type="file"] {
+    display: none;
+}
+
+/* 自定义的按钮样式 - 极简黑白灰 */
+.custom-file-upload {
+    display: inline-block;
+    padding: 8px 16px;
+    cursor: pointer;
+    background-color: #ffffff;
+    color: #212529;
+    border: 1px solid #DEE2E6;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.15s ease-in-out;
+}
+
+.custom-file-upload:hover {
+    background-color: #212529;
+    color: #ffffff;
+    border-color: #212529;
+}
+
+/* Spinner 动画 */
+.spinner {
+    border: 3px solid #E9ECEF;
+    border-top: 3px solid #212529;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

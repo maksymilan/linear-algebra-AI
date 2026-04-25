@@ -1,0 +1,196 @@
+/* src/pages/CreateAssignmentPage.css - 极简黑白灰主题 */
+
+.page-assignment-creator {
+    background-color: #F1F3F5;
+    padding: 4rem 2rem;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+.creator-card {
+    display: flex;
+    flex-direction: column;
+    max-width: 1280px;
+    width: 100%;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #DEE2E6;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.creator-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    height: 64px;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #FFFFFF;
+}
+
+.creator-header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.creator-header h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #212529;
+    margin: 0;
+}
+
+.creator-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+    padding: 2rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+.form-group:last-child { margin-bottom: 0; }
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.6rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #868E96;
+}
+
+.form-input,
+.form-textarea {
+    width: 100%;
+    background-color: #ffffff;
+    border: 1px solid #DEE2E6;
+    color: #212529;
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+    outline: none;
+    border-color: #212529;
+    box-shadow: 0 0 0 1px #212529;
+}
+
+.form-textarea {
+    min-height: 350px;
+    resize: vertical;
+    line-height: 1.6;
+}
+
+.preview-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.preview-box {
+    flex-grow: 1;
+    background-color: #F8F9FA;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px dashed #DEE2E6;
+    overflow-y: auto;
+    color: #212529;
+}
+
+.creator-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    font-family: inherit;
+}
+.creator-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 主操作按钮（发布） */
+.btn-publish {
+    background-color: #212529;
+    color: #ffffff;
+    border-color: #212529;
+}
+.btn-publish:hover:not(:disabled) {
+    background-color: #000000;
+    border-color: #000000;
+}
+
+/* 次要/返回按钮 */
+.btn-secondary {
+    background-color: #ffffff;
+    color: #495057;
+    border-color: #DEE2E6;
+}
+.btn-secondary:hover:not(:disabled) {
+    color: #212529;
+    border-color: #212529;
+    background-color: #F8F9FA;
+}
+
+/* 文件上传按钮 */
+.file-upload-label {
+    background-color: #ffffff;
+    color: #495057;
+    border-color: #DEE2E6;
+}
+.file-upload-label:hover {
+    color: #212529;
+    border-color: #212529;
+    background-color: #F8F9FA;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: #868E96;
+}
+
+.remove-file-button {
+    background: none;
+    border: none;
+    color: #868E96;
+    cursor: pointer;
+    padding: 0;
+    font-size: 1rem;
+    display: inline-flex;
+    align-items: center;
+    transition: color 0.15s ease-in-out;
+}
+.remove-file-button:hover {
+    color: #dc3545;
+}
+
+/* 错误提示 */
+.creator-error {
+    margin-top: 1.5rem;
+    color: #dc3545;
+    text-align: center;
+    font-weight: 500;
+    background-color: #FFF5F5;
+    border: 1px solid #FFE3E3;
+    padding: 0.75rem;
+    border-radius: 8px;
+}
