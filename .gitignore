@@ -18,3 +18,4 @@ test_user
 uploads/
 *.log
 log/
+node_modules/

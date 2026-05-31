@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 const VisualizerPage = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const returnTo = searchParams.get('returnTo');
     
     // 解析 URL 参数中的矩阵，例如 ?matrix=2,0,0,1&dim=2
     const initialDim = parseInt(searchParams.get('dim')) || 2;
@@ -39,7 +40,7 @@ const VisualizerPage = () => {
             {/* 顶部导航栏 */}
             <header className="flex items-center px-6 py-4 bg-white border-b border-[#DEE2E6] shrink-0 shadow-sm z-10">
                 <button 
-                    onClick={() => navigate(-1)} 
+                    onClick={() => navigate(returnTo || -1)} 
                     className="flex items-center gap-2 text-[#868E96] hover:text-black transition-colors"
                 >
                     <ArrowLeft size={20} />

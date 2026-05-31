@@ -30,6 +30,7 @@ export const AppRoutes = () => {
       
       {/* 核心页面 */}
       <Route path="/workspace" element={<ProtectedRoute><WorkspacePage /></ProtectedRoute>} />
+      <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
       <Route path="/chat/:sessionId" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
       <Route path="/grading" element={<ProtectedRoute><GradingPage /></ProtectedRoute>} />
       <Route path="/visualizer" element={<ProtectedRoute><VisualizerPage /></ProtectedRoute>} />

@@ -14,8 +14,8 @@ from tqdm import tqdm
 
 # 加载环境变量
 load_dotenv()
-api_key = os.getenv("AI_API_KEY", os.getenv("QWEN_API_KEY"))
-url = os.getenv("AI_BASE_URL", os.getenv("QWEN_URL"))
+api_key = os.getenv("AI_API_KEY", os.getenv("AI_API_KEY"))
+url = os.getenv("AI_BASE_URL", os.getenv("AI_BASE_URL"))
 
 # 获取 Embedding 和 VL 模型
 embedding_model = os.getenv("AI_EMBEDDING_MODEL", "text-embedding-3-small")
@@ -27,8 +27,6 @@ client = OpenAI(api_key=api_key, base_url=url)
 # ---------------------------------------------------------------------------
 # OCR 输出清洗
 # ---------------------------------------------------------------------------
-# 模型偶尔会在 OCR 结果里好心加入"排版建议/开场白/结束语"，这些并不是教材原文，
-# 喂进向量库会污染检索；我们用白名单 + 关键词过滤 + URL 去除把它们剔除掉。
 
 _NOISE_KEYWORDS = (
     "ctex.cc",

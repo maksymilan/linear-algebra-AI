@@ -20,7 +20,7 @@ const WorkspacePage = () => {
 
     // 学生的功能模块
     const studentModules = [
-        { title: 'AI 助教', icon: <ChatIcon />, path: '/chat/new', description: '随时提问，获取即时帮助，支持公式和矩阵可视化。' },
+        { title: 'AI 助教', icon: <ChatIcon />, path: '/chat', description: '随时提问，获取即时帮助，支持公式和矩阵可视化。' },
         { title: '课程作业', icon: <AssignmentIcon />, path: '/assignments', description: '查看和提交老师发布的作业，并获得AI的即时批改。' },
         { title: '自主批改', icon: <GradeIcon />, path: '/grading', description: '上传题目和你的解答，检验自己的学习效果。' },
         { title: '我的班级', icon: <ClassIcon />, path: '/student/class', description: '使用老师提供的邀请码加入班级，并查看当前教学进度。' }
@@ -31,7 +31,7 @@ const WorkspacePage = () => {
         { title: '班级管理', icon: <ClassIcon />, path: '/teacher/classes', description: '查看班级邀请码、教学进度与每位学生的学习情况。' },
         { title: '发布作业', icon: <CreateAssignmentIcon />, path: '/assignments/new', description: '为您的班级创建和发布新作业。' },
         { title: '查看提交', icon: <GradeIcon />, path: '/assignments', description: '跟踪学生的作业提交情况，查看AI的自动批改结果。' },
-		{ title: 'AI 助教', icon: <ChatIcon />, path: '/chat/new', description: '随时提问，获取即时帮助，支持公式和矩阵可视化。' },
+		{ title: 'AI 助教', icon: <ChatIcon />, path: '/chat', description: '随时提问，获取即时帮助，支持公式和矩阵可视化。' },
         { title: '教材管理', icon: <BookIcon />, path: '/textbooks', description: '上传并管理课程关联的PDF教材，AI将自动提取并更新知识库。' },
     ];
 

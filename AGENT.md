@@ -1,9 +1,6 @@
 # AGENT.md — Linear Algebra AI 项目设计与架构文档
 
 > **本文件面向后续接手开发的 AI Agent / 工程师。**
-> 它不是流水账记录，而是**项目当前的设计方案与系统架构总览**：
-> 读完这一份文件，你应该可以独立做新需求、加新接口、定位故障，而不需要再去翻其他 README。
->
 > 维护原则：当**架构、数据流、接口契约、关键约定**发生变化时，请同步更新本文件。
 
 ---
@@ -13,7 +10,6 @@
 - **是什么**：面向《线性代数》课程的 AI 教学助手。学生能问问题、写作业；教师能管理班级、上传教材、看学生学情。
 - **三端架构**：React 前端（5173）→ Go 业务后端（8080）→ Python AI 服务（8000）→ PostgreSQL+pgvector（5432）。
 - **AI 能力**：基于 OpenAI 兼容 API 的多模态对话 + RAG 检索 + OCR 解析 + 自动批改。
-- **运维**：监控栈 Prometheus + Grafana + Loki + Alertmanager（国内可用，替代 Sentry）。
 - **特殊约定**：仅允许 `@zju.edu.cn` 邮箱注册；前端 LaTeX 三层兜底渲染。
 
 ---
@@ -33,7 +29,7 @@
 2. **教学周（current_week）控制可见性**：学生 RAG 查询和当前周内容仅看到 ≤ current_week 的教材。
 3. **RAG 优先于通识**：模型先在教材向量库里检索，再用检索结果作为上下文回答。
 4. **多模态批改**：作业可上传图片/PDF，先 OCR → 再 LLM 评分 → 学生可对单题发起 follow-up 答疑。
-5. **强校验注册**：邮箱必须 `@zju.edu.cn` + 邮箱验证码（6 位数字，10 分钟有效）。
+5. **强校验注册**：邮箱必须 `@zju.edu.cn` + 邮箱验证码（6 位数字，10 分钟有效）。(未实现)
 
 ---
 
@@ -83,11 +79,6 @@
 | 文件存储（教材、作业、课件） | **Go 后端** 本地磁盘 | 当前阶段不接入对象存储；生产再切 OSS |
 | 向量库（embedding） | **Python AI 服务**写入 + Go 不直接读 | 解耦；Go 仅触发 ingest 流程 |
 | Chat 上下文管理 | **Go 后端** 持久化 + **AI 服务**消费 history | Go 是真理之源，AI 服务是无状态的 |
-
-### 2.2 部署形态
-
-- **本地开发**：4 进程（PG/Go/Py/Vite）+ 5 容器监控栈。
-- **生产建议**：单 VM Docker Compose（Caddy + 前述四个服务 + 监控栈），≤ ¥150/月可用。
 
 ---
 
@@ -187,15 +178,6 @@ linear-algebra-AI/
 │       ├── autoWrapMath.js   ── LaTeX 兜底包裹
 │       └── errorReporter.js  ── 前端错误上报
 │
-├── monitoring/               ── 监控栈（Docker Compose 独立）
-│   ├── docker-compose.yml
-│   ├── prometheus.yml / alert_rules.yml
-│   ├── loki-config.yml / promtail-config.yml
-│   ├── alertmanager.yml
-│   └── grafana/
-│       ├── provisioning/{datasources,dashboards}/
-│       └── dashboards/{api-performance.json, logs-errors.json}
-│
 ├── docker-compose.db.yml     ── 独立数据库 compose（pgvector/pg15）
 ├── init_v2.sql               ── ⚠️ 数据库初始化脚本（带 \q 保险丝）
 ├── readme.md                 ── 跨机器启动指南（用户视角）
@@ -217,7 +199,6 @@ linear-algebra-AI/
 | `POST /api/auth/request-code` | 申请验证码（purpose: register / reset_password）|
 | `POST /api/auth/reset-password` | 凭验证码重置密码 |
 | `GET  /api/health/db` | DB 健康检查 |
-| `GET  /metrics` | Prometheus 指标 |
 | `POST /api/telemetry/frontend` | 前端错误上报 |
 | `POST /api/telemetry/alert` | Alertmanager webhook |
 

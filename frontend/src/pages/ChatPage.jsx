@@ -9,6 +9,11 @@ import MathCalculator from '../components/MathCalculator';
 import { Calculator } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:8080';
+const LAST_CHAT_ID_PREFIX = 'la-ai:last-chat-id';
+
+const getLastChatStorageKey = (user) => `${LAST_CHAT_ID_PREFIX}:${user?.sub || user?.name || 'anonymous'}`;
+const isRealSessionId = (id) => Boolean(id && id !== 'new' && !String(id).startsWith('temp-') && !Number.isNaN(Number(id)));
+const normalizeMessages = (messages) => Array.isArray(messages) ? messages : [];
 
 // --- 图标 ---
 const AiIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8"/><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 2v2"/><path d="M9 2v2"/></svg>;
@@ -25,45 +30,85 @@ const ChatPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
     const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+    const [fetchedMessageSessionIds, setFetchedMessageSessionIds] = useState(() => new Set());
 
     const activeChat = useMemo(() => chats[sessionId] || null, [chats, sessionId]);
     const activeMessages = useMemo(() => activeChat?.messages || [], [activeChat]);
+    const lastChatStorageKey = useMemo(() => getLastChatStorageKey(user), [user]);
 
     useEffect(() => {
         if (token) axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }, [token]);
     
     useEffect(() => {
+        if (!token) return;
         axios.get(`${API_BASE_URL}/api/chat/sessions`)
             .then(res => {
                 const sessions = Array.isArray(res.data) ? res.data : [];
-                setChats(sessions.reduce((acc, session) => {
-                    acc[session.id] = { ...session, messages: [] };
-                    return acc;
-                }, {}));
+                setChats(prev => {
+                    const next = {};
+                    Object.entries(prev).forEach(([id, chat]) => {
+                        if (String(id).startsWith('temp-')) next[id] = chat;
+                    });
+                    sessions.forEach(session => {
+                        const existing = prev[session.id] || prev[String(session.id)];
+                        next[session.id] = {
+                            ...session,
+                            messages: normalizeMessages(existing?.messages || session.messages),
+                        };
+                    });
+                    return next;
+                });
+
+                if (!sessionId) {
+                    const lastChatId = localStorage.getItem(lastChatStorageKey);
+                    const hasLastChat = lastChatId && sessions.some(session => String(session.id) === String(lastChatId));
+                    if (hasLastChat) {
+                        navigate(`/chat/${lastChatId}`, { replace: true });
+                    } else if (sessions.length > 0) {
+                        navigate(`/chat/${sessions[0].id}`, { replace: true });
+                    } else {
+                        navigate('/chat/new', { replace: true });
+                    }
+                }
             })
             .catch(error => console.error("Failed to fetch sessions:", error));
-    }, []);
+    }, [token, sessionId, navigate, lastChatStorageKey]);
 
     useEffect(() => {
-        const isValidSessionId = sessionId && !isNaN(sessionId) && sessionId !== 'new';
-        if (isValidSessionId && (!chats[sessionId] || chats[sessionId].messages.length === 0)) {
+        if (isRealSessionId(sessionId)) {
+            localStorage.setItem(lastChatStorageKey, String(sessionId));
+        }
+    }, [sessionId, lastChatStorageKey]);
+
+    useEffect(() => {
+        const isValidSessionId = isRealSessionId(sessionId);
+        const hasLoadedMessages = normalizeMessages(chats[sessionId]?.messages).length > 0;
+        const hasFetchedMessages = fetchedMessageSessionIds.has(String(sessionId));
+        if (isValidSessionId && !hasLoadedMessages && !hasFetchedMessages) {
             setIsLoading(true);
             axios.get(`${API_BASE_URL}/api/chat/messages/${sessionId}`)
                 .then(res => setChats(prev => ({
                     ...prev,
-                    [sessionId]: { ...prev[sessionId], messages: Array.isArray(res.data) ? res.data : [] },
+                    [sessionId]: {
+                        ...(prev[sessionId] || { id: sessionId, title: '对话记录' }),
+                        messages: normalizeMessages(res.data),
+                    },
                 })))
                 .catch(error => console.error(`Failed to fetch messages for session ${sessionId}:`, error))
-                .finally(() => setIsLoading(false));
+                .finally(() => {
+                    setFetchedMessageSessionIds(prev => new Set(prev).add(String(sessionId)));
+                    setIsLoading(false);
+                });
         }
-    }, [sessionId, Object.keys(chats).length]);
+    }, [sessionId, chats, fetchedMessageSessionIds]);
 
     const handleSend = async () => {
         if ((input.trim() === '' && files.length === 0) || isLoading) return;
     
-        const isNewChat = sessionId === 'new' || sessionId.startsWith('temp-');
-        const tempChatId = isNewChat ? (sessionId.startsWith('temp-') ? sessionId : `temp-${Date.now()}`) : sessionId;
+        const isTempSession = String(sessionId || '').startsWith('temp-');
+        const isNewChat = !isRealSessionId(sessionId);
+        const tempChatId = isNewChat ? (isTempSession ? sessionId : `temp-${Date.now()}`) : sessionId;
     
         const userMessage = { 
             id: `msg-${Date.now()}`,
@@ -72,7 +117,7 @@ const ChatPage = () => {
             files: files.map(f => ({ name: f.name, url: URL.createObjectURL(f) }))
         };
     
-        if (isNewChat && !sessionId.startsWith('temp-')) {
+        if (isNewChat && !isTempSession) {
             navigate(`/chat/${tempChatId}`, { replace: true });
         }
     
@@ -107,6 +152,9 @@ const ChatPage = () => {
     
             if (isNewChat) {
                 navigate(`/chat/${newSessionData.id}`, { replace: true });
+            }
+            if (newSessionData?.id) {
+                localStorage.setItem(lastChatStorageKey, String(newSessionData.id));
             }
     
             // **最终修复：采用最稳健的逻辑处理AI响应**
@@ -144,6 +192,14 @@ const ChatPage = () => {
             setIsLoading(false);
         }
     };
+
+    const handleOpenVisualizer = () => {
+        const returnTo = isRealSessionId(sessionId) ? `/chat/${sessionId}` : '/chat/new';
+        if (isRealSessionId(sessionId)) {
+            localStorage.setItem(lastChatStorageKey, String(sessionId));
+        }
+        navigate(`/visualizer?returnTo=${encodeURIComponent(returnTo)}`);
+    };
     
     return (
         <div className="flex h-screen w-screen fixed top-0 left-0 bg-[#FFFFFF] text-[#212529]">
@@ -162,12 +218,12 @@ const ChatPage = () => {
                 <div className="w-full max-w-[1000px] h-full mx-auto flex flex-col px-4 box-border">
                     <div className="flex justify-between items-center py-4 border-b border-[#DEE2E6] shrink-0">
                         <h2 className="m-0 text-lg font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
-                            {activeChat?.title || (sessionId.startsWith('temp-') ? '新会话...' : '开始新对话')}
+                            {activeChat?.title || (String(sessionId || '').startsWith('temp-') ? '新会话...' : '开始新对话')}
                         </h2>
                         <div className="flex gap-2">
                             <button 
                                 className="flex items-center gap-2 px-4 py-2 border border-[#DEE2E6] rounded-md text-[#868E96] bg-transparent cursor-pointer transition-colors hover:bg-[#F1F3F5] hover:text-[#000000] hover:border-[#000000]"
-                                onClick={() => navigate('/visualizer')}
+                                onClick={handleOpenVisualizer}
                                 title="打开独立的可视化引擎"
                             >
                                 <VisIcon />
