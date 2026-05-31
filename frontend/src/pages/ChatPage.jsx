@@ -124,7 +124,7 @@ const ChatPage = () => {
         setChats(prev => ({
             ...prev,
             [tempChatId]: {
-                ...(prev[tempChatId] || { id: tempChatId, title: '新会话...' }),
+                ...(prev[tempChatId] || { id: tempChatId, title: '正在生成标题...' }),
                 messages: [...(prev[tempChatId]?.messages || []), userMessage],
             },
         }));

@@ -12,7 +12,7 @@ from file_utils import extract_text_from_file, file_to_base64
 from memory import build_memory_state, build_rag_query
 from prompts import GRADING_FOLLOW_UP_PROMPT, GRADING_SYSTEM_PROMPT, PPT_SUMMARY_PROMPT, SYSTEM_PROMPT
 from rag import retrieve_textbook_context
-from response_utils import compact_title, parse_model_json, title_from_prompt
+from response_utils import extract_model_title, parse_model_json
 from textbook_tasks import process_textbook_task
 
 
@@ -49,29 +49,36 @@ def format_chat_system_prompt(
 def generate_title(prompt: str) -> str:
     prompt = (prompt or "").strip()
     if not prompt:
-        return "新对话"
+        return "未命名对话"
     try:
         response = client.chat.completions.create(
             model=settings.model_name,
             messages=[
                 {
+                    "role": "system",
+                    "content": (
+                        "你是一个对话标题生成器。请根据用户开启对话的第一条问题，"
+                        "生成一个自然、具体、简短的中文标题。不要照抄整句问题，"
+                        "不要使用“新对话”“线性代数答疑”“问题”等泛标题。"
+                    ),
+                },
+                {
                     "role": "user",
                     "content": (
-                        "请为下面这条线性代数学习提问生成一个中文会话标题，"
-                        "不超过10个字，只输出标题本身：\n" + prompt
+                        "请只输出标题本身，不要加引号、JSON、Markdown 或解释。"
+                        "标题不超过12个汉字。\n\n"
+                        f"用户第一条问题：{prompt}"
                     ),
                 }
             ],
-            max_tokens=40,
+            max_tokens=80,
             temperature=0.2,
         )
-        title = compact_title(response.choices[0].message.content or "")
-        if title in {"矩阵", "线性代数", "问题", "学习"}:
-            return title_from_prompt(prompt)
-        return title or title_from_prompt(prompt)
+        raw_title = response.choices[0].message.content or ""
+        return extract_model_title(raw_title)
     except Exception as exc:
-        logger.warning("Title generation failed, using fallback: %s", exc)
-        return title_from_prompt(prompt)
+        logger.warning("AI title generation failed: %s", exc)
+        return "未命名对话"
 
 
 @app.post("/api/v1/textbook/ingest")

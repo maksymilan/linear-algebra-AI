@@ -69,6 +69,17 @@ def require_any_key(name, payload, keys):
         raise AssertionError(f"{name} expected one of non-empty keys {keys}; payload={payload}")
 
 
+def require_generated_title(name, payload):
+    title = str(payload.get("title") or "").strip()
+    blocked = {"", "新对话", "新会话", "新会话...", "正在生成标题...", "未命名对话"}
+    if title in blocked:
+        raise AssertionError(f"{name} expected an AI-generated title; payload={payload}")
+    if any(marker in title for marker in ["{", "}", '"title"', "'title'", "title:"]):
+        raise AssertionError(f"{name} title looks like an unparsed model payload: {title!r}")
+    if len(title) > 24:
+        raise AssertionError(f"{name} title is too long: {title!r}")
+
+
 def run_check(label, fn):
     started = time.time()
     print(f"RUN {label}", flush=True)
@@ -132,6 +143,24 @@ def main():
     ))
 
     if not args.skip_llm:
+        def first_chat_title_check():
+            payload = http_json(
+                "POST",
+                f"{ai_base}/api/v1/chat",
+                fields={
+                    "prompt": "请解释一下线性相关和线性无关",
+                    "history": "[]",
+                    "is_first_message": "true",
+                    "learned_summaries": "",
+                    "current_week": "0",
+                },
+                timeout=180,
+            )
+            require_any_key("first chat", payload, ["response", "text_explanation"])
+            require_generated_title("first chat", payload)
+
+        check("first chat generated title", first_chat_title_check)
+
         check("chat with memory", lambda: require_any_key(
             "chat",
             http_json(

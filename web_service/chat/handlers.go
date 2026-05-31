@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,22 @@ type AIChatResponse struct {
 type MessageForAI struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+}
+
+func trimRunes(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max])
+}
+
+func normalizeAITitle(title string) string {
+	title = strings.Trim(title, " \t\r\n。！？!?，,：:；;、\"'`“”‘’（）()[]【】<>《》")
+	if title == "" {
+		return "未命名对话"
+	}
+	return trimRunes(title, 12)
 }
 
 func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
@@ -132,8 +149,8 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 	writer := multipart.NewWriter(body)
 	_ = writer.WriteField("prompt", prompt)
 	_ = writer.WriteField("is_first_message", c.PostForm("is_first_message"))
-	_ = writer.WriteField("history", string(historyJSON)) // 发送完整的历史记录
-	_ = writer.WriteField("learned_summaries", learnedSummaries) // 发送已学知识总结
+	_ = writer.WriteField("history", string(historyJSON))            // 发送完整的历史记录
+	_ = writer.WriteField("learned_summaries", learnedSummaries)     // 发送已学知识总结
 	_ = writer.WriteField("current_week", strconv.Itoa(currentWeek)) // **新增：RAG 检索用的教学周约束**
 
 	// ... (文件处理部分保持不变)
@@ -196,8 +213,9 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 	}
 
 	// 更新会话标题（如果需要）
-	if isFirstMessage && aiResp.Title != "" {
-		session.Title = aiResp.Title
+	if isFirstMessage {
+		session.Title = normalizeAITitle(aiResp.Title)
+		aiResp.Title = session.Title
 		if err := tx.Save(&session).Error; err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session title"})
@@ -308,7 +326,7 @@ func (h *ChatHandler) SubmitFeedbackHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Message not found"})
 		return
 	}
-	
+
 	var session ChatSession
 	if err := h.DB.First(&session, message.SessionID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
