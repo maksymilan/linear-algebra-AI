@@ -14,6 +14,11 @@ const LAST_CHAT_ID_PREFIX = 'la-ai:last-chat-id';
 const getLastChatStorageKey = (user) => `${LAST_CHAT_ID_PREFIX}:${user?.sub || user?.name || 'anonymous'}`;
 const isRealSessionId = (id) => Boolean(id && id !== 'new' && !String(id).startsWith('temp-') && !Number.isNaN(Number(id)));
 const normalizeMessages = (messages) => Array.isArray(messages) ? messages : [];
+const isPremiumModelExhausted = (model, modelConfig) => {
+    const limitedIds = modelConfig?.features?.limited_chat_model_ids || [];
+    const remaining = modelConfig?.usage?.premium_chat?.remaining;
+    return limitedIds.includes(model?.id) && typeof remaining === 'number' && remaining <= 0;
+};
 
 // --- 图标 ---
 const AiIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8"/><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 2v2"/><path d="M9 2v2"/></svg>;
@@ -31,6 +36,8 @@ const ChatPage = () => {
     const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
     const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
     const [fetchedMessageSessionIds, setFetchedMessageSessionIds] = useState(() => new Set());
+    const [modelConfig, setModelConfig] = useState(null);
+    const [selectedModelId, setSelectedModelId] = useState('default');
 
     const activeChat = useMemo(() => chats[sessionId] || null, [chats, sessionId]);
     const activeMessages = useMemo(() => activeChat?.messages || [], [activeChat]);
@@ -39,6 +46,31 @@ const ChatPage = () => {
     useEffect(() => {
         if (token) axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }, [token]);
+
+    const refreshModelConfig = useCallback(async () => {
+        if (!token) return;
+        try {
+            const res = await axios.get(`${API_BASE_URL}/api/chat/models`);
+            setModelConfig(res.data);
+        } catch (error) {
+            console.error("Failed to fetch model options:", error);
+        }
+    }, [token]);
+
+    useEffect(() => {
+        refreshModelConfig();
+    }, [refreshModelConfig]);
+
+    useEffect(() => {
+        const models = modelConfig?.chat_models || [];
+        if (models.length === 0) return;
+
+        const selected = models.find(model => model.id === selectedModelId);
+        if (!selected || isPremiumModelExhausted(selected, modelConfig)) {
+            const fallback = models.find(model => !isPremiumModelExhausted(model, modelConfig)) || models[0];
+            setSelectedModelId(fallback.id);
+        }
+    }, [modelConfig, selectedModelId]);
     
     useEffect(() => {
         if (!token) return;
@@ -133,6 +165,7 @@ const ChatPage = () => {
         formData.append('prompt', input);
         files.forEach(file => formData.append('files', file));
         formData.append('is_first_message', String(isNewChat));
+        formData.append('model_id', selectedModelId);
         if (!isNewChat) formData.append('chat_session_id', sessionId);
     
         setInput('');
@@ -156,6 +189,7 @@ const ChatPage = () => {
             if (newSessionData?.id) {
                 localStorage.setItem(lastChatStorageKey, String(newSessionData.id));
             }
+            refreshModelConfig();
     
             // **最终修复：采用最稳健的逻辑处理AI响应**
             if (aiResponseData && aiResponseData.visualizations) {
@@ -188,6 +222,9 @@ const ChatPage = () => {
     
         } catch (error) {
             console.error("Error sending message:", error);
+            const errorMessage = error?.response?.data?.error || '发送失败，请稍后重试。';
+            window.alert(errorMessage);
+            refreshModelConfig();
         } finally {
             setIsLoading(false);
         }
@@ -200,6 +237,9 @@ const ChatPage = () => {
         }
         navigate(`/visualizer?returnTo=${encodeURIComponent(returnTo)}`);
     };
+
+    const premiumUsage = modelConfig?.usage?.premium_chat;
+    const chatModels = modelConfig?.chat_models || [];
     
     return (
         <div className="flex h-screen w-screen fixed top-0 left-0 bg-[#FFFFFF] text-[#212529]">
@@ -217,10 +257,17 @@ const ChatPage = () => {
             <main className="flex-1 h-full flex flex-col overflow-hidden">
                 <div className="w-full max-w-[1000px] h-full mx-auto flex flex-col px-4 box-border">
                     <div className="flex justify-between items-center py-4 border-b border-[#DEE2E6] shrink-0">
-                        <h2 className="m-0 text-lg font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
-                            {activeChat?.title || (String(sessionId || '').startsWith('temp-') ? '新会话...' : '开始新对话')}
-                        </h2>
-                        <div className="flex gap-2">
+                        <div className="min-w-0 flex-1">
+                            <h2 className="m-0 text-lg font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
+                                {activeChat?.title || (String(sessionId || '').startsWith('temp-') ? '新会话...' : '开始新对话')}
+                            </h2>
+                            {premiumUsage && (
+                                <p className="m-0 mt-1 text-xs text-[#868E96]">
+                                    高级模型额度：{premiumUsage.remaining}/{premiumUsage.limit}
+                                </p>
+                            )}
+                        </div>
+                        <div className="flex gap-2 shrink-0">
                             <button 
                                 className="flex items-center gap-2 px-4 py-2 border border-[#DEE2E6] rounded-md text-[#868E96] bg-transparent cursor-pointer transition-colors hover:bg-[#F1F3F5] hover:text-[#000000] hover:border-[#000000]"
                                 onClick={handleOpenVisualizer}
@@ -231,6 +278,39 @@ const ChatPage = () => {
                             </button>
                         </div>
                     </div>
+
+                    {chatModels.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 py-3 border-b border-[#E9ECEF] shrink-0">
+                            <span className="text-xs text-[#868E96] mr-1">模型</span>
+                            {chatModels.map(model => {
+                                const disabled = isPremiumModelExhausted(model, modelConfig);
+                                const selected = selectedModelId === model.id;
+                                return (
+                                    <button
+                                        key={model.id}
+                                        type="button"
+                                        disabled={disabled || isLoading}
+                                        onClick={() => setSelectedModelId(model.id)}
+                                        className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
+                                            selected
+                                                ? 'bg-black text-white border-black'
+                                                : disabled
+                                                    ? 'bg-[#F1F3F5] text-[#ADB5BD] border-[#DEE2E6] cursor-not-allowed'
+                                                    : 'bg-white text-[#495057] border-[#DEE2E6] hover:border-black hover:text-black'
+                                        }`}
+                                        title={disabled ? '今日高级模型额度已用完，明天自动恢复' : model.model}
+                                    >
+                                        {model.label || model.id}
+                                        {model.daily_limited && (
+                                            <span className={`ml-1 ${selected ? 'text-white/75' : disabled ? 'text-[#ADB5BD]' : 'text-[#868E96]'}`}>
+                                                限额
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
 
                     {sessionId === 'new' && activeMessages.length === 0 && !isLoading ? (
                         <div className="flex-1 flex flex-col justify-center items-center text-center pb-[20vh]">

@@ -1,0 +1,76 @@
+{
+  "roles": {
+    "default": "default",
+    "chat": "default",
+    "title": "default",
+    "grading": "default",
+    "grading_chat": "default",
+    "memory": "default",
+    "ppt_summary": "default",
+    "ocr": "deepseek_ocr",
+    "ocr_repair": "default",
+    "exercise_extract": "default",
+    "embedding": "embed_v_4_0"
+  },
+  "features": {
+    "ocr_repair_enabled": true
+  },
+  "limits": {
+    "premium_chat_daily_limit": 30,
+    "limited_chat_model_ids": [
+      "gemini_flash",
+      "gpt_5_5",
+      "claude_opus_4_7",
+      "claude_opus_4_8"
+    ]
+  },
+  "model_groups": {
+    "chat": [
+      {
+        "id": "default",
+        "model": "deepseek-v4-pro",
+        "label": "默认模型"
+      },
+      {
+        "id": "gemini_flash",
+        "model": "gemini-3.5-flash",
+        "label": "Gemini 3.5 Flash",
+        "daily_limited": true
+      },
+      {
+        "id": "gpt_5_5",
+        "model": "gpt-5.5",
+        "label": "GPT-5.5",
+        "daily_limited": true
+      },
+      {
+        "id": "claude_opus_4_7",
+        "model": "claude-opus-4-7",
+        "label": "Claude Opus 4.7",
+        "daily_limited": true,
+        "unsupported_params": ["temperature"]
+      },
+      {
+        "id": "claude_opus_4_8",
+        "model": "claude-opus-4-8",
+        "label": "Claude Opus 4.8",
+        "daily_limited": true,
+        "unsupported_params": ["temperature"]
+      }
+    ],
+    "vision": [
+      {
+        "id": "deepseek_ocr",
+        "model": "deepseek-ocr",
+        "label": "DeepSeek OCR"
+      }
+    ],
+    "embedding": [
+      {
+        "id": "embed_v_4_0",
+        "model": "embed-v-4-0",
+        "label": "Embed V4.0"
+      }
+    ]
+  }
+}

@@ -33,6 +33,20 @@ type AIChatResponse struct {
 	Error           string            `json:"error,omitempty"`
 }
 
+func userIDFromContext(c *gin.Context) uint {
+	userIDRaw, _ := c.Get("userID")
+	switch v := userIDRaw.(type) {
+	case float64:
+		return uint(v)
+	case uint:
+		return v
+	case int:
+		return uint(v)
+	default:
+		return 0
+	}
+}
+
 // MessageForAI 结构体用于将我们的ChatMessage转换为AI服务所需的格式
 type MessageForAI struct {
 	Role    string `json:"role"`
@@ -57,16 +71,7 @@ func normalizeAITitle(title string) string {
 
 func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 	// --- 1. 解析通用表单数据 ---
-	userIDRaw, _ := c.Get("userID")
-	var userID uint
-	switch v := userIDRaw.(type) {
-	case float64:
-		userID = uint(v)
-	case uint:
-		userID = v
-	case int:
-		userID = uint(v)
-	}
+	userID := userIDFromContext(c)
 	isFirstMessage, _ := strconv.ParseBool(c.PostForm("is_first_message"))
 	prompt := c.PostForm("prompt")
 	sessionIDStr := c.PostForm("chat_session_id")
@@ -152,6 +157,10 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 	_ = writer.WriteField("history", string(historyJSON))            // 发送完整的历史记录
 	_ = writer.WriteField("learned_summaries", learnedSummaries)     // 发送已学知识总结
 	_ = writer.WriteField("current_week", strconv.Itoa(currentWeek)) // **新增：RAG 检索用的教学周约束**
+	_ = writer.WriteField("user_id", strconv.Itoa(int(userID)))
+	if modelID := c.PostForm("model_id"); modelID != "" {
+		_ = writer.WriteField("model_id", modelID)
+	}
 
 	// ... (文件处理部分保持不变)
 	form, err := c.MultipartForm()
@@ -181,6 +190,24 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 	defer resp.Body.Close()
 
 	responseBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= http.StatusBadRequest {
+		tx.Rollback()
+		var errResp struct {
+			Detail interface{} `json:"detail"`
+			Error  interface{} `json:"error"`
+		}
+		message := string(responseBody)
+		if err := json.Unmarshal(responseBody, &errResp); err == nil {
+			if errResp.Detail != nil {
+				message = fmt.Sprint(errResp.Detail)
+			} else if errResp.Error != nil {
+				message = fmt.Sprint(errResp.Error)
+			}
+		}
+		c.JSON(resp.StatusCode, gin.H{"error": message})
+		return
+	}
+
 	var aiResp AIChatResponse
 	if err := json.Unmarshal(responseBody, &aiResp); err != nil {
 		tx.Rollback()
@@ -228,6 +255,20 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 	// --- 5. 返回最新会话数据给前端 ---
 	h.DB.Preload("Messages").First(&session, session.ID)
 	c.JSON(http.StatusOK, gin.H{"session": session, "ai_response": aiResp})
+}
+
+func (h *ChatHandler) GetModelOptionsHandler(c *gin.Context) {
+	userID := userIDFromContext(c)
+	targetURL := fmt.Sprintf("http://localhost:8000/api/v1/models?user_id=%d", userID)
+	resp, err := http.Get(targetURL)
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AI service is unreachable"})
+		return
+	}
+	defer resp.Body.Close()
+
+	responseBody, _ := io.ReadAll(resp.Body)
+	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), responseBody)
 }
 
 // GetSessionsHandler 和 GetMessagesHandler 保持不变

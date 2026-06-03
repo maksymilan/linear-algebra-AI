@@ -37,6 +37,29 @@ CREATE TABLE textbook_chunks (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
 ); 
 
+CREATE TABLE textbook_exercises (
+    id SERIAL PRIMARY KEY,
+    textbook_id INTEGER,
+    textbook_name VARCHAR(255) NOT NULL,
+    page_num INTEGER,
+    exercise_number VARCHAR(100),
+    stem TEXT NOT NULL,
+    answer TEXT,
+    solution TEXT,
+    concepts TEXT,
+    source_excerpt TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE model_usage_daily (
+    user_id INTEGER NOT NULL,
+    usage_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    bucket VARCHAR(100) NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, usage_date, bucket)
+);
+
 -- 4. 聊天记录表 (新增 RLHF 评价反馈) 
 CREATE TABLE chat_messages ( 
     id SERIAL PRIMARY KEY, 

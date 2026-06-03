@@ -7,6 +7,7 @@ from openai import APIError
 
 from clients import client
 from config import settings
+from llm import chat_completion
 
 
 logger = logging.getLogger(__name__)
@@ -51,7 +52,8 @@ def extract_text_from_file(file: UploadFile) -> str:
             }
         ]
         try:
-            response = client.chat.completions.create(
+            response = chat_completion(
+                client,
                 model=settings.vision_model_name,
                 messages=messages,
                 max_tokens=2048,
@@ -63,4 +65,3 @@ def extract_text_from_file(file: UploadFile) -> str:
             return f"An unexpected error occurred: {exc}"
 
     return "Unsupported file type."
-

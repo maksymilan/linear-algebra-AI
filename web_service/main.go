@@ -42,6 +42,7 @@ func main() {
 		authed.Use(auth.AuthMiddleware())
 		{
 			authed.POST("/chat/send", chatHandler.SendMessageHandler)
+			authed.GET("/chat/models", chatHandler.GetModelOptionsHandler)
 			authed.GET("/chat/sessions", chatHandler.GetSessionsHandler)
 			authed.GET("/chat/messages/:id", chatHandler.GetMessagesHandler)
 			authed.POST("/chat/messages/:id/feedback", chatHandler.SubmitFeedbackHandler) // 新增点赞路由

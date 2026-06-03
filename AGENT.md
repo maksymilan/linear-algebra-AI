@@ -132,7 +132,7 @@
 ### 关键字段约束
 - `users.email` UNIQUE + `@zju.edu.cn` 校验（[verification.go IsAllowedRegisterEmail](file:///Users/bytedance/School/linear-algebra-AI/web_service/auth/verification.go)）
 - `classes.invite_code` UNIQUE，6 位大写字母数字
-- `textbook_chunks.embedding` 维度 = 1536（text-embedding-3-small）
+- `textbook_chunks.embedding` 维度 = 1536（当前 embedding 模型 `embed-v-4-0`）
 - `chat_messages.feedback_score`：1=赞，-1=踩，0=未评
 
 ---
@@ -344,7 +344,7 @@ AI_API_KEY="..."
 AI_BASE_URL="https://aihubmix.com/v1"
 AI_MODEL_NAME="gemini-3.1-pro-preview"
 AI_VL_MODEL_NAME="gemini-3.1-pro-preview"
-AI_EMBEDDING_MODEL="text-embedding-3-small"
+AI_EMBEDDING_MODEL="embed-v-4-0"
 
 DB_NAME="LA-DB"
 DB_USER="postgres"
@@ -415,6 +415,13 @@ VITE_APP_VERSION="dev"
 - 虚拟环境位于 `ai_service/venv`；任何 pip / 依赖数据库的脚本都要用 `venv/bin/python`。
 - `prometheus-fastapi-instrumentator` 是**可选**依赖，未装时 `/metrics` 不暴露但主流程不受影响。
 - 改动 `OCR_PROMPT` 后请跑 LaTeX 回归用例（见 `autoWrapMath.test`）。
+- AIHubMix 模型约定：
+  - 模型池统一配置在 `ai_service/model_config.json`，业务代码不要硬编码模型特例。
+  - Embedding 当前使用 `embed-v-4-0`；业务代码必须通过 `resolve_model("embedding")` 获取供应商真实模型名，避免把配置 id 传给 `embeddings.create()`。
+  - Chat completion 必须走 `ai_service/llm.py` 的 `chat_completion()`，由它按 `unsupported_params` 过滤参数，并在供应商返回参数 deprecated/unsupported 时自动移除对应参数重试。
+  - Claude Opus 4.8 如需 reasoning 能力，可在未来新增或配置 `claude-opus-4-8-think`；当前模型池保持 `claude-opus-4-8` 不变。
+  - Gemini 3.5 Flash thinking 默认开启，不需要额外 reasoning 参数。
+  - GPT-5.5 chat 接口不支持修改 reasoning 强度；如需强度差异，新增 `gpt-5.5-high` / `gpt-5.5-low` 等模型配置项，不传 reasoning 参数。
 
 ### 9.4 前端
 - Vite 静态分析会 resolve `import('xxx')` 字面量。**可选依赖**必须用变量中转：

@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 from openai import OpenAI
 
 from config import settings
+from llm import chat_completion
 
 
 logger = logging.getLogger(__name__)
@@ -116,7 +117,8 @@ def summarize_messages(client: OpenAI, model: str, messages: List[Dict[str, str]
         f"{text}"
     )
     try:
-        response = client.chat.completions.create(
+        response = chat_completion(
+            client,
             model=model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=600,
@@ -171,4 +173,3 @@ def build_rag_query(current_prompt: str, memory: MemoryState) -> str:
     if not memory.retrieval_query_context:
         return current_prompt
     return f"[对话上下文：{memory.retrieval_query_context}] {current_prompt}"
-

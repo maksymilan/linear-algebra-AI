@@ -2,13 +2,14 @@ import json
 import logging
 from typing import List, Optional
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from clients import client
-from config import settings
+from config import resolve_model, resolve_model_id, settings
 from database import ensure_vector_index, get_db_conn
 from file_utils import extract_text_from_file, file_to_base64
+from llm import chat_completion
 from memory import build_memory_state, build_rag_query
 from prompts import GRADING_FOLLOW_UP_PROMPT, GRADING_SYSTEM_PROMPT, PPT_SUMMARY_PROMPT, SYSTEM_PROMPT
 from rag import retrieve_textbook_context
@@ -51,8 +52,9 @@ def generate_title(prompt: str) -> str:
     if not prompt:
         return "未命名对话"
     try:
-        response = client.chat.completions.create(
-            model=settings.model_name,
+        response = chat_completion(
+            client,
+            model=resolve_model("title"),
             messages=[
                 {
                     "role": "system",
@@ -81,6 +83,67 @@ def generate_title(prompt: str) -> str:
         return "未命名对话"
 
 
+def enforce_premium_chat_limit(user_id: int, model_id: str) -> int:
+    """Increment and enforce the shared daily limit for premium chat models."""
+    if model_id not in settings.limited_chat_model_ids:
+        return -1
+    if user_id <= 0:
+        raise HTTPException(status_code=400, detail="高级模型需要有效的用户 ID")
+
+    conn = get_db_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO model_usage_daily (user_id, usage_date, bucket, count, updated_at)
+            VALUES (%s, CURRENT_DATE, 'premium_chat', 1, CURRENT_TIMESTAMP)
+            ON CONFLICT (user_id, usage_date, bucket)
+            DO UPDATE SET
+                count = model_usage_daily.count + 1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE model_usage_daily.count < %s
+            RETURNING count
+            """,
+            (user_id, settings.premium_chat_daily_limit),
+        )
+        row = cur.fetchone()
+        if not row:
+            conn.rollback()
+            raise HTTPException(
+                status_code=429,
+                detail=f"高级模型今日调用次数已达上限 {settings.premium_chat_daily_limit} 次",
+            )
+        conn.commit()
+        return int(row[0])
+    finally:
+        cur.close()
+        conn.close()
+
+
+def get_premium_chat_usage(user_id: int) -> dict:
+    if user_id <= 0:
+        return {"count": 0, "limit": settings.premium_chat_daily_limit, "remaining": settings.premium_chat_daily_limit}
+
+    conn = get_db_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT count
+            FROM model_usage_daily
+            WHERE user_id = %s AND usage_date = CURRENT_DATE AND bucket = 'premium_chat'
+            """,
+            (user_id,),
+        )
+        row = cur.fetchone()
+        count = int(row[0]) if row else 0
+        remaining = max(0, settings.premium_chat_daily_limit - count)
+        return {"count": count, "limit": settings.premium_chat_daily_limit, "remaining": remaining}
+    finally:
+        cur.close()
+        conn.close()
+
+
 @app.post("/api/v1/textbook/ingest")
 async def ingest_textbook_api(
     background_tasks: BackgroundTasks,
@@ -90,6 +153,46 @@ async def ingest_textbook_api(
 ):
     background_tasks.add_task(process_textbook_task, file_path, textbook_name, textbook_id)
     return {"message": "Started processing textbook asynchronously"}
+
+
+@app.get("/api/v1/models")
+async def list_models(user_id: int = Query(0)):
+    premium_usage = get_premium_chat_usage(user_id)
+    return {
+        "chat_models": settings.chat_model_options,
+        "model_groups": settings.model_groups,
+        "roles": {
+            "chat": settings.chat_model,
+            "title": settings.title_model,
+            "grading": settings.grading_model,
+            "grading_chat": settings.grading_chat_model,
+            "memory": settings.memory_model,
+            "ppt_summary": settings.ppt_summary_model,
+            "ocr": settings.vision_model_name,
+            "ocr_repair": settings.ocr_repair_model,
+            "exercise_extract": settings.exercise_extract_model,
+            "embedding": settings.embedding_model,
+        },
+        "defaults": {
+            "chat": resolve_model("chat"),
+            "title": resolve_model("title"),
+            "grading": resolve_model("grading"),
+            "grading_chat": resolve_model("grading_chat"),
+            "ppt_summary": resolve_model("ppt_summary"),
+            "ocr": resolve_model("ocr"),
+            "ocr_repair": resolve_model("ocr_repair"),
+            "exercise_extract": resolve_model("exercise_extract"),
+            "embedding": resolve_model("embedding"),
+        },
+        "features": {
+            "ocr_repair_enabled": settings.ocr_repair_enabled,
+            "premium_chat_daily_limit": settings.premium_chat_daily_limit,
+            "limited_chat_model_ids": settings.limited_chat_model_ids,
+        },
+        "usage": {
+            "premium_chat": premium_usage,
+        },
+    }
 
 
 @app.post("/api/v1/textbook/delete")
@@ -102,11 +205,22 @@ async def delete_textbook_api(
         cur = conn.cursor()
         cur.execute("DELETE FROM textbook_chunks WHERE textbook_name = %s", (textbook_name,))
         deleted = cur.rowcount
+        cur.execute(
+            "DELETE FROM textbook_exercises WHERE textbook_name = %s OR textbook_id = %s",
+            (textbook_name, textbook_id),
+        )
+        deleted_exercises = cur.rowcount
         conn.commit()
         cur.close()
         conn.close()
-        logger.info("Deleted %s chunks for textbook %s (id=%s)", deleted, textbook_name, textbook_id)
-        return {"message": "deleted", "deleted_chunks": deleted}
+        logger.info(
+            "Deleted %s chunks and %s exercises for textbook %s (id=%s)",
+            deleted,
+            deleted_exercises,
+            textbook_name,
+            textbook_id,
+        )
+        return {"message": "deleted", "deleted_chunks": deleted, "deleted_exercises": deleted_exercises}
     except Exception as exc:
         logger.error("Delete textbook chunks error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
@@ -131,8 +245,9 @@ async def summarize_ppt(file: UploadFile = File(...)):
         {"role": "user", "content": f"以下是课件提取的文本内容：\n\n{text}"},
     ]
     try:
-        response = client.chat.completions.create(
-            model=settings.model_name,
+        response = chat_completion(
+            client,
+            model=resolve_model("ppt_summary"),
             messages=messages,
             max_tokens=2048,
             temperature=0.3,
@@ -151,6 +266,8 @@ async def multimodal_chat(
     learned_summaries: str = Form(""),
     current_week: int = Form(0),
     history: Optional[str] = Form(None),
+    model_id: Optional[str] = Form(None),
+    user_id: int = Form(0),
 ):
     if not prompt and not files:
         raise HTTPException(status_code=400, detail="Prompt or files must be provided.")
@@ -171,7 +288,10 @@ async def multimodal_chat(
                 )
     user_content_list.insert(0, {"type": "text", "text": current_prompt})
 
-    memory_state = build_memory_state(client, settings.model_name, history)
+    selected_model_id = resolve_model_id("chat", model_id)
+    selected_model = resolve_model("chat", selected_model_id)
+    premium_usage_count = enforce_premium_chat_limit(user_id, selected_model_id)
+    memory_state = build_memory_state(client, resolve_model("memory"), history)
     rag_query = build_rag_query(current_prompt, memory_state)
     retrieved_context, citations = retrieve_textbook_context(
         query=rag_query,
@@ -189,8 +309,9 @@ async def multimodal_chat(
     messages.append({"role": "user", "content": user_content_list})
 
     try:
-        response = client.chat.completions.create(
-            model=settings.model_name,
+        response = chat_completion(
+            client,
+            model=selected_model,
             messages=messages,
             max_tokens=4096,
             temperature=0.55,
@@ -204,6 +325,13 @@ async def multimodal_chat(
             parsed["response"] = text
             parsed.setdefault("text_explanation", text)
             parsed.setdefault("citations", citations)
+            parsed.setdefault("model", selected_model)
+            parsed.setdefault("model_id", selected_model_id)
+            if premium_usage_count >= 0:
+                parsed.setdefault("premium_usage", {
+                    "count": premium_usage_count,
+                    "limit": settings.premium_chat_daily_limit,
+                })
             if title:
                 parsed["title"] = title
             return parsed
@@ -213,6 +341,12 @@ async def multimodal_chat(
             "text_explanation": ai_response,
             "title": title,
             "citations": citations,
+            "model": selected_model,
+            "model_id": selected_model_id,
+            "premium_usage": (
+                {"count": premium_usage_count, "limit": settings.premium_chat_daily_limit}
+                if premium_usage_count >= 0 else None
+            ),
         }
     except Exception as exc:
         logger.error("Chat API error: %s", exc)
@@ -229,8 +363,9 @@ async def grade_homework(problem_text: str = Form(...), solution_text: str = For
             {"role": "system", "content": GRADING_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ]
-        response = client.chat.completions.create(
-            model=settings.model_name,
+        response = chat_completion(
+            client,
+            model=resolve_model("grading"),
             messages=messages,
             max_tokens=4096,
             temperature=0.3,
@@ -269,8 +404,9 @@ async def grading_chat(
 
     messages = [{"role": "user", "content": final_prompt}]
     try:
-        response = client.chat.completions.create(
-            model=settings.model_name,
+        response = chat_completion(
+            client,
+            model=resolve_model("grading_chat"),
             messages=messages,
             max_tokens=4096,
             temperature=0.45,

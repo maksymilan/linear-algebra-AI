@@ -29,9 +29,15 @@ def get_textbook_status(textbook_id: int) -> str:
 def process_textbook_task(file_path: str, textbook_name: str, textbook_id: int) -> None:
     try:
         logger.info("Background task: processing textbook %s", textbook_name)
-        text = ingest_pdf.extract_text_via_ocr(file_path, textbook_id=textbook_id, max_workers=5)
+        text, exercises = ingest_pdf.extract_text_via_ocr(
+            file_path,
+            textbook_id=textbook_id,
+            max_workers=5,
+            return_metadata=True,
+        )
         chunks = ingest_pdf.chunk_text(text)
-        ingest_pdf.ingest_to_db(textbook_name, 1, chunks)
+        ingest_pdf.ingest_to_db(textbook_name, 1, chunks, textbook_id=textbook_id)
+        ingest_pdf.ingest_exercises_to_db(textbook_id, textbook_name, exercises)
         update_textbook_status(textbook_id, "completed")
         logger.info("Background task: %s completed", textbook_name)
     except Exception as exc:
@@ -44,4 +50,3 @@ def process_textbook_task(file_path: str, textbook_name: str, textbook_id: int) 
                 update_textbook_status(textbook_id, "failed")
         except Exception:
             logger.exception("Could not mark textbook %s as failed", textbook_id)
-

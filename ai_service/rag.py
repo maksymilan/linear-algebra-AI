@@ -3,7 +3,7 @@ import re
 from typing import List, Optional, Tuple
 
 from clients import client
-from config import settings
+from config import resolve_model, settings
 from database import get_db_conn
 
 
@@ -44,7 +44,7 @@ def retrieve_textbook_context(
         return "", []
 
     try:
-        emb_resp = client.embeddings.create(input=[query], model=settings.embedding_model)
+        emb_resp = client.embeddings.create(input=[query], model=resolve_model("embedding"))
         query_vec = emb_resp.data[0].embedding
     except Exception as exc:
         logger.warning("RAG embedding failed; skipping retrieval: %s", exc)
@@ -114,4 +114,3 @@ def retrieve_textbook_context(
     if pieces:
         logger.info("RAG retrieved %d chunks for current_week=%s", len(pieces), current_week)
     return "\n\n".join(pieces), citations
-

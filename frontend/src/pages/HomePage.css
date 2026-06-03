@@ -1,0 +1,237 @@
+.home-page {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 249, 250, 0.96)),
+    var(--color-background-tertiary);
+  color: var(--color-text-primary);
+}
+
+.home-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 4.25rem;
+  padding: 0 2rem;
+  border-bottom: 1px solid var(--color-border-light);
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(12px);
+}
+
+.home-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.home-logo {
+  width: 2rem;
+  height: 2rem;
+}
+
+.home-nav-button,
+.home-primary-button {
+  border: 0;
+  border-radius: var(--border-radius-sm);
+  background: #111827;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  transition: var(--transition-fast);
+}
+
+.home-nav-button {
+  padding: 0.55rem 0.9rem;
+}
+
+.home-primary-button {
+  padding: 0.85rem 1.2rem;
+}
+
+.home-nav-button:hover,
+.home-primary-button:hover {
+  background: #256f68;
+  transform: translateY(-1px);
+}
+
+.home-main {
+  width: min(1120px, calc(100% - 3rem));
+  margin: 0 auto;
+}
+
+.home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  align-items: center;
+  gap: 4rem;
+  min-height: calc(100vh - 4.25rem);
+  padding: 4rem 0 3rem;
+}
+
+.home-hero-copy {
+  max-width: 38rem;
+}
+
+.home-kicker {
+  margin: 0 0 0.9rem;
+  color: #256f68;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.home-hero h1 {
+  margin: 0;
+  font-size: clamp(2.6rem, 6vw, 5.4rem);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.home-lead {
+  margin: 1.4rem 0 0;
+  max-width: 34rem;
+  color: var(--color-text-secondary);
+  font-size: 1.12rem;
+  line-height: 1.8;
+}
+
+.home-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.home-secondary-link {
+  color: #374151;
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid #9ca3af;
+  padding-bottom: 0.15rem;
+}
+
+.home-preview {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  background: #ffffff;
+  box-shadow: var(--shadow-lg);
+}
+
+.home-preview-header {
+  display: flex;
+  gap: 0.45rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--color-border-light);
+  background: #f4f6f8;
+}
+
+.home-preview-header span {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: #c7cdd4;
+}
+
+.home-preview-body {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.home-preview-row {
+  padding: 1.05rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--border-radius-sm);
+  background: #ffffff;
+}
+
+.home-preview-row.is-accent {
+  border-color: rgba(37, 111, 104, 0.28);
+  background: #eef8f6;
+}
+
+.home-preview-row strong {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 1rem;
+}
+
+.home-preview-row p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+}
+
+.home-capabilities {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 0 0 3rem;
+}
+
+.home-capabilities article {
+  min-height: 11rem;
+  padding: 1.35rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--border-radius-md);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.home-capabilities span {
+  color: #b7791f;
+  font-weight: 800;
+}
+
+.home-capabilities h2 {
+  margin: 0.75rem 0 0.55rem;
+  font-size: 1.1rem;
+}
+
+.home-capabilities p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}
+
+@media (max-width: 820px) {
+  .home-nav {
+    padding: 0 1rem;
+  }
+
+  .home-main {
+    width: min(100% - 2rem, 42rem);
+  }
+
+  .home-hero {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    min-height: auto;
+    padding: 3rem 0 2rem;
+  }
+
+  .home-preview {
+    max-width: 32rem;
+  }
+
+  .home-capabilities {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .home-brand span {
+    font-size: 0.95rem;
+  }
+
+  .home-nav-button {
+    padding: 0.5rem 0.7rem;
+  }
+
+  .home-hero h1 {
+    font-size: 2.45rem;
+  }
+}
