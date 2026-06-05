@@ -1,7 +1,8 @@
 DROP SCHEMA public CASCADE;
 CREATE SCHEMA public;
 
-CREATE EXTENSION IF NOT EXISTS vector; 
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pg_trgm; -- 题库关键词模糊检索
 
 -- 1. 班级表 (核心组织架构) 
 CREATE TABLE classes ( 
@@ -46,10 +47,24 @@ CREATE TABLE textbook_exercises (
     stem TEXT NOT NULL,
     answer TEXT,
     solution TEXT,
-    concepts TEXT,
+    concepts TEXT,                          -- 旧的自由文本概念（保留兼容）
+    concept_tags TEXT[],                    -- 受控知识点标准 tag
+    exercise_type VARCHAR(20),              -- example=例题 / homework=课后习题
+    question_type VARCHAR(20),              -- 计算/证明/选择/填空/判断/简答
+    has_answer BOOLEAN DEFAULT FALSE,       -- 是否带答案或解析
     source_excerpt TEXT,
+    embedding vector(1536),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_textbook_exercises_embedding
+ON textbook_exercises USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+CREATE INDEX idx_textbook_exercises_stem_trgm
+ON textbook_exercises USING gin (stem gin_trgm_ops);
+
+CREATE INDEX idx_textbook_exercises_concept_tags
+ON textbook_exercises USING gin (concept_tags);
 
 CREATE TABLE model_usage_daily (
     user_id INTEGER NOT NULL,
@@ -67,6 +82,7 @@ CREATE TABLE chat_messages (
     role VARCHAR(20) NOT NULL, 
     content TEXT NOT NULL, 
     feedback_score SMALLINT DEFAULT 0,      -- 1: 有帮助, -1: 没看懂, 0: 未评价 
+    response_duration_ms INTEGER,           -- AI 回复生成耗时，单位毫秒
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
 ); 
 

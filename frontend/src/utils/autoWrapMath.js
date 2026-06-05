@@ -25,6 +25,43 @@ const MATH_SEG_RE =
 // 已经确定是"数学命令"开头的特征：避免把反斜杠转义的日常字符（如 \n 实际不会出现于 OCR 文本）误当数学
 const LOOKS_LIKE_MATH_RE = /\\[A-Za-z]+|[_^][A-Za-z0-9{]/;
 
+// \begin{cases}...\end{cases} 这类环境如果没有 $$ 包裹，remark-math 不会识别。
+// 只在 plain 段处理，已有 $...$ / $$...$$ 的内容保持原样。
+const LATEX_ENV_RE = /\\begin\{([A-Za-z*]+)\}[\s\S]*?\\end\{\1\}/g;
+
+function wrapInlineMath(seg) {
+  let out = '';
+  let k = 0;
+  while (k < seg.length) {
+    MATH_SEG_RE.lastIndex = 0;
+    const sub = seg.slice(k);
+    const m = sub.match(MATH_SEG_RE);
+    if (!m) {
+      out += sub;
+      break;
+    }
+    const s = m.index;
+    const e = s + m[0].length;
+    out += sub.slice(0, s) + `$${m[0]}$`;
+    k += e;
+  }
+  return out;
+}
+
+function wrapPlainMath(seg) {
+  let out = '';
+  let last = 0;
+  for (const match of seg.matchAll(LATEX_ENV_RE)) {
+    const start = match.index;
+    const rawEnv = match[0].trim();
+    out += wrapInlineMath(seg.slice(last, start));
+    out += `$$\n${rawEnv}\n$$`;
+    last = start + match[0].length;
+  }
+  out += wrapInlineMath(seg.slice(last));
+  return out;
+}
+
 /**
  * @param {string} text
  * @returns {string}
@@ -66,22 +103,7 @@ export function autoWrapMath(text) {
   // 对 plain 片段逐一扫描、包裹
   const wrapped = parts.map(({ kind, seg }) => {
     if (kind === 'math' || !seg) return seg;
-    let out = '';
-    let k = 0;
-    while (k < seg.length) {
-      MATH_SEG_RE.lastIndex = 0;
-      const sub = seg.slice(k);
-      const m = sub.match(MATH_SEG_RE);
-      if (!m) {
-        out += sub;
-        break;
-      }
-      const s = m.index;
-      const e = s + m[0].length;
-      out += sub.slice(0, s) + `$${m[0]}$`;
-      k += e;
-    }
-    return out;
+    return wrapPlainMath(seg);
   });
 
   return wrapped.join('');

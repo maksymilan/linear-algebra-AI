@@ -6,8 +6,9 @@ from fastapi import UploadFile
 from openai import APIError
 
 from clients import client
-from config import settings
+from config import resolve_model
 from llm import chat_completion
+from ocr_utils import build_vision_ocr_messages
 
 
 logger = logging.getLogger(__name__)
@@ -39,26 +40,17 @@ def extract_text_from_file(file: UploadFile) -> str:
 
     if "image" in mime_type:
         data_url = file_to_base64(file)
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "请提取这张图片中的所有数学公式和文本内容。不要额外解释，只返回纯文本。",
-                    },
-                    {"type": "image_url", "image_url": {"url": data_url}},
-                ],
-            }
-        ]
+        model = resolve_model("ocr")
+        prompt = "请提取这张图片中的所有数学公式和文本内容。不要额外解释，只返回纯文本。"
+        messages = build_vision_ocr_messages(model, data_url, prompt)
         try:
             response = chat_completion(
                 client,
-                model=settings.vision_model_name,
+                model=model,
                 messages=messages,
                 max_tokens=2048,
             )
-            return response.choices[0].message.content or ""
+            return (response.choices[0].message.content or "").strip() or "[空白]"
         except APIError as exc:
             return f"Error from AI service: {exc.message}"
         except Exception as exc:

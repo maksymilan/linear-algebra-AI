@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -8,7 +8,7 @@ import ChatHistorySidebar from '../components/ChatHistorySidebar';
 import MathCalculator from '../components/MathCalculator';
 import { Calculator } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:8080';
+const API_BASE_URL = '';
 const LAST_CHAT_ID_PREFIX = 'la-ai:last-chat-id';
 
 const getLastChatStorageKey = (user) => `${LAST_CHAT_ID_PREFIX}:${user?.sub || user?.name || 'anonymous'}`;
@@ -33,11 +33,14 @@ const ChatPage = () => {
     const [input, setInput] = useState('');
     const [files, setFiles] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isSending, setIsSending] = useState(false);
     const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
     const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
     const [fetchedMessageSessionIds, setFetchedMessageSessionIds] = useState(() => new Set());
     const [modelConfig, setModelConfig] = useState(null);
     const [selectedModelId, setSelectedModelId] = useState('default');
+    const activeRequestRef = useRef(null);
+    const sendingRef = useRef(false);
 
     const activeChat = useMemo(() => chats[sessionId] || null, [chats, sessionId]);
     const activeMessages = useMemo(() => activeChat?.messages || [], [activeChat]);
@@ -135,19 +138,58 @@ const ChatPage = () => {
         }
     }, [sessionId, chats, fetchedMessageSessionIds]);
 
+    const removePendingRequestMessages = useCallback((request) => {
+        setChats(prev => {
+            const fallbackChatId = sessionId;
+            const chatId = request?.chatId || fallbackChatId;
+            const chat = prev[chatId];
+            if (!chat) return prev;
+            if (request?.isNewChat) {
+                const next = { ...prev };
+                delete next[chatId];
+                return next;
+            }
+            return {
+                ...prev,
+                [chatId]: {
+                    ...chat,
+                    messages: normalizeMessages(chat.messages).filter(msg => (
+                        request?.requestId ? msg.pendingRequestId !== request.requestId : !msg.pendingRequestId
+                    )),
+                },
+            };
+        });
+    }, [sessionId]);
+
     const handleSend = async () => {
-        if ((input.trim() === '' && files.length === 0) || isLoading) return;
+        if ((input.trim() === '' && files.length === 0) || isSending || sendingRef.current) return;
+        sendingRef.current = true;
     
         const isTempSession = String(sessionId || '').startsWith('temp-');
         const isNewChat = !isRealSessionId(sessionId);
         const tempChatId = isNewChat ? (isTempSession ? sessionId : `temp-${Date.now()}`) : sessionId;
+        const draftInput = input;
+        const draftFiles = files;
+        const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     
         const userMessage = { 
-            id: `msg-${Date.now()}`,
-            text: input.trim(), 
+            id: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            text: draftInput.trim(), 
             sender: 'user', 
-            files: files.map(f => ({ name: f.name, url: URL.createObjectURL(f) }))
+            files: draftFiles.map(f => ({ name: f.name, url: URL.createObjectURL(f) })),
+            pendingRequestId: requestId,
         };
+        const requestStartedAt = performance.now();
+        const controller = new AbortController();
+        const request = {
+            controller,
+            chatId: tempChatId,
+            requestId,
+            isNewChat,
+            draftInput,
+            draftFiles,
+        };
+        activeRequestRef.current = request;
     
         if (isNewChat && !isTempSession) {
             navigate(`/chat/${tempChatId}`, { replace: true });
@@ -162,24 +204,38 @@ const ChatPage = () => {
         }));
     
         const formData = new FormData();
-        formData.append('prompt', input);
-        files.forEach(file => formData.append('files', file));
+        formData.append('prompt', draftInput);
+        draftFiles.forEach(file => formData.append('files', file));
         formData.append('is_first_message', String(isNewChat));
         formData.append('model_id', selectedModelId);
         if (!isNewChat) formData.append('chat_session_id', sessionId);
     
         setInput('');
         setFiles([]);
-        setIsLoading(true);
+        setIsSending(true);
     
         try {
-            const res = await axios.post(`${API_BASE_URL}/api/chat/send`, formData);
+            const res = await axios.post(`${API_BASE_URL}/api/chat/send`, formData, {
+                signal: controller.signal,
+            });
             const { session: newSessionData, ai_response: aiResponseData } = res.data;
+            const elapsedMs = Math.max(0, Math.round(performance.now() - requestStartedAt));
     
             setChats(prev => {
                 const newChats = { ...prev };
                 if (isNewChat) delete newChats[tempChatId];
-                newChats[newSessionData.id] = newSessionData;
+                const sessionMessages = normalizeMessages(newSessionData.messages);
+                const lastAiIndex = [...sessionMessages].map(msg => msg.sender).lastIndexOf('ai');
+                if (lastAiIndex >= 0 && sessionMessages[lastAiIndex].responseDurationMs == null) {
+                    sessionMessages[lastAiIndex] = {
+                        ...sessionMessages[lastAiIndex],
+                        responseDurationMs: elapsedMs,
+                    };
+                }
+                newChats[newSessionData.id] = {
+                    ...newSessionData,
+                    messages: sessionMessages,
+                };
                 return newChats;
             });
     
@@ -221,13 +277,45 @@ const ChatPage = () => {
             }
     
         } catch (error) {
+            if (axios.isCancel(error) || error?.code === 'ERR_CANCELED') {
+                if (!request.cancelHandled) {
+                    removePendingRequestMessages(request);
+                    setInput(draftInput);
+                    setFiles(draftFiles);
+                    if (isNewChat) {
+                        navigate('/chat/new', { replace: true });
+                    }
+                }
+                return;
+            }
             console.error("Error sending message:", error);
             const errorMessage = error?.response?.data?.error || '发送失败，请稍后重试。';
             window.alert(errorMessage);
             refreshModelConfig();
         } finally {
-            setIsLoading(false);
+            if (activeRequestRef.current?.requestId === requestId) {
+                activeRequestRef.current = null;
+                sendingRef.current = false;
+                setIsSending(false);
+            }
         }
+    };
+
+    const handleCancelSend = () => {
+        const request = activeRequestRef.current;
+        if (request) {
+            request.cancelHandled = true;
+            request.controller.abort();
+        }
+        removePendingRequestMessages(request);
+        setInput(request?.draftInput || input);
+        setFiles(request?.draftFiles || files);
+        if (request?.isNewChat) {
+            navigate('/chat/new', { replace: true });
+        }
+        activeRequestRef.current = null;
+        sendingRef.current = false;
+        setIsSending(false);
     };
 
     const handleOpenVisualizer = () => {
@@ -289,7 +377,7 @@ const ChatPage = () => {
                                     <button
                                         key={model.id}
                                         type="button"
-                                        disabled={disabled || isLoading}
+                                        disabled={disabled || isSending}
                                         onClick={() => setSelectedModelId(model.id)}
                                         className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
                                             selected
@@ -312,7 +400,7 @@ const ChatPage = () => {
                         </div>
                     )}
 
-                    {sessionId === 'new' && activeMessages.length === 0 && !isLoading ? (
+                    {sessionId === 'new' && activeMessages.length === 0 && !isLoading && !isSending ? (
                         <div className="flex-1 flex flex-col justify-center items-center text-center pb-[20vh]">
                             <div className="w-16 h-16 rounded-full bg-[#F1F3F5] flex items-center justify-center mb-6 text-[#212529]">
                                 <AiIcon />
@@ -321,7 +409,7 @@ const ChatPage = () => {
                             <p className="text-[#868E96] text-lg">你好, {user?.displayName || user?.name}！有什么线性代数的问题吗？</p>
                         </div>
                     ) : (
-                        <MessageList messages={activeMessages} isLoading={isLoading} user={user} />
+                        <MessageList messages={activeMessages} isLoading={isSending} user={user} />
                     )}
 
                     <div className="shrink-0 w-full bg-[#FFFFFF] pb-6 pt-2">
@@ -331,7 +419,8 @@ const ChatPage = () => {
                             files={files} 
                             setFiles={setFiles} 
                             onSend={handleSend} 
-                            isLoading={isLoading} 
+                            onCancel={handleCancelSend}
+                            isLoading={isSending} 
                         />
                     </div>
                 </div>

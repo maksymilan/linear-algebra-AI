@@ -9,7 +9,9 @@ import (
 	"workplace/web_service/auth"
 	"workplace/web_service/chat"
 	"workplace/web_service/config"
+	"workplace/web_service/favorite"
 	"workplace/web_service/grading"
+	"workplace/web_service/questionbank"
 	"workplace/web_service/textbook"
 
 	"github.com/gin-contrib/cors"
@@ -26,12 +28,14 @@ func main() {
 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
 		AllowCredentials: true,
 	}))
-	authHandler := &auth.AuthHandler{DB: db}
+	authHandler := &auth.AuthHandler{DB: db, Mailer: auth.NewSMTPMailerFromEnv()}
 	classHandler := &auth.ClassHandler{DB: db}
 	gradingHandler := &grading.GradingHandler{DB: db}
 	chatHandler := &chat.ChatHandler{DB: db}
 	assignmentHandler := &assignment.AssignmentHandler{DB: db}
 	textbookHandler := &textbook.TextbookHandler{DB: db}
+	questionBankHandler := &questionbank.QuestionBankHandler{}
+	favoriteHandler := &favorite.FavoriteHandler{DB: db}
 	api := r.Group("/api")
 	{
 		api.POST("/auth/register", authHandler.Register)
@@ -50,22 +54,28 @@ func main() {
 			authed.POST("/grading/ocr", gradingHandler.OcrHandler)
 			// **↓↓↓ 新增的答疑路由 ↓↓↓**
 			authed.POST("/grading/followup", gradingHandler.StartFollowUpChatHandler)
+			// 题库检索（转发 ai_service 混合检索）
+			authed.POST("/questions/search", questionBankHandler.Search)
+			// 题目收藏
+			authed.POST("/favorites", favoriteHandler.Add)
+			authed.DELETE("/favorites/:exerciseId", favoriteHandler.Remove)
+			authed.GET("/favorites", favoriteHandler.List)
 		}
 		// ... (下方路由保持不变) ...
 		teacherRoutes := api.Group("/teacher")
 		teacherRoutes.Use(auth.AuthMiddleware(), auth.TeacherMiddleware())
 		{
-			teacherRoutes.POST("/classes", classHandler.CreateClass) // 创建班级
-			teacherRoutes.GET("/classes", classHandler.ListMyClasses) // 查看我管理的班级
-			teacherRoutes.GET("/classes/:id", classHandler.GetClassDetail) // 查看某个班级详情 + 学生学习情况
-			teacherRoutes.PATCH("/classes/:id/week", classHandler.UpdateClassWeek) // 更新班级当前教学周
+			teacherRoutes.POST("/classes", classHandler.CreateClass)                             // 创建班级
+			teacherRoutes.GET("/classes", classHandler.ListMyClasses)                            // 查看我管理的班级
+			teacherRoutes.GET("/classes/:id", classHandler.GetClassDetail)                       // 查看某个班级详情 + 学生学习情况
+			teacherRoutes.PATCH("/classes/:id/week", classHandler.UpdateClassWeek)               // 更新班级当前教学周
 			teacherRoutes.POST("/classes/:id/weekly_content", classHandler.UploadWeeklyMaterial) // 上传每周课件总结
 			teacherRoutes.POST("/assignments", assignmentHandler.CreateAssignmentHandler)
 			teacherRoutes.GET("/assignments", assignmentHandler.ListAssignmentsHandler)
 			teacherRoutes.GET("/assignments/:id", assignmentHandler.GetAssignmentHandler)
 			teacherRoutes.GET("/submission/file/:id", assignmentHandler.ServeSubmissionFileHandler)
 			teacherRoutes.POST("/submission/:id/comment", assignmentHandler.AddCommentHandler)
-			
+
 			// 教材管理
 			teacherRoutes.GET("/textbooks", textbookHandler.GetTextbooks)
 			teacherRoutes.POST("/textbooks", textbookHandler.UploadTextbook)
@@ -75,7 +85,7 @@ func main() {
 		studentRoutes := api.Group("/student")
 		studentRoutes.Use(auth.AuthMiddleware(), auth.StudentMiddleware())
 		{
-			studentRoutes.POST("/class/join", classHandler.JoinClass) // 加入班级
+			studentRoutes.POST("/class/join", classHandler.JoinClass)   // 加入班级
 			studentRoutes.GET("/class", classHandler.GetMyStudentClass) // 查看我所在班级（未加入时 joined=false）
 			studentRoutes.GET("/assignments", assignmentHandler.ListAssignmentsHandler)
 			studentRoutes.GET("/assignments/:id", assignmentHandler.GetAssignmentHandler)

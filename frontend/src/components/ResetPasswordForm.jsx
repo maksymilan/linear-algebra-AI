@@ -22,7 +22,7 @@ const ResetPasswordForm = ({ onResetSuccess, onSwitchToLogin }) => {
     setSuccessMsg('');
 
     try {
-      const response = await axios.post('http://localhost:8080/api/auth/reset-password', {
+      const response = await axios.post('/api/auth/reset-password', {
         username,
         email,
         new_password: newPassword

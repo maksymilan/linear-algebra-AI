@@ -16,15 +16,18 @@ package auth
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 // --------------- Model ---------------
@@ -57,13 +60,18 @@ func (c *ConsoleMailer) SendVerificationCode(toEmail, code, purpose string) erro
 // DefaultMailer 方便全局初始化
 var DefaultMailer Mailer = &ConsoleMailer{}
 
+var (
+	ErrVerificationCodeInvalid = errors.New("验证码无效")
+	ErrVerificationCodeExpired = errors.New("验证码已过期，请重新获取")
+)
+
 // --------------- 工具函数 ---------------
 
 const (
-	codeTTL       = 10 * time.Minute
-	minResendGap  = 60 * time.Second // 同一邮箱 + 用途 60s 内不能重复请求
-	codeCharset   = "0123456789"
-	codeLength    = 6
+	codeTTL      = 10 * time.Minute
+	minResendGap = 60 * time.Second // 同一邮箱 + 用途 60s 内不能重复请求
+	codeCharset  = "0123456789"
+	codeLength   = 6
 )
 
 func generateNumericCode(n int) (string, error) {
@@ -81,6 +89,50 @@ func generateNumericCode(n int) (string, error) {
 
 func validPurpose(p string) bool {
 	return p == "password_reset" || p == "register"
+}
+
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
+func envListContains(name string, value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return false
+	}
+	for _, item := range strings.Split(os.Getenv(name), ",") {
+		if strings.ToLower(strings.TrimSpace(item)) == value {
+			return true
+		}
+	}
+	return false
+}
+
+func bypassRegisterEmailCheck(email string) bool {
+	return envListContains("REGISTER_EMAIL_CHECK_BYPASS", email)
+}
+
+func fixedRegisterCodeForEmail(email string) string {
+	code := strings.TrimSpace(os.Getenv("REGISTER_TEST_CODE"))
+	if code == "" || !envListContains("REGISTER_TEST_CODE_EMAILS", email) {
+		return ""
+	}
+	return code
+}
+
+func ConsumeVerificationCode(tx *gorm.DB, email string, purpose string, code string) error {
+	email = normalizeEmail(email)
+	code = strings.TrimSpace(code)
+	var vc VerificationCode
+	if err := tx.Where("email = ? AND purpose = ? AND code = ? AND used = ?",
+		email, purpose, code, false).
+		Order("created_at desc").First(&vc).Error; err != nil {
+		return ErrVerificationCodeInvalid
+	}
+	if time.Now().After(vc.ExpiresAt) {
+		return ErrVerificationCodeExpired
+	}
+	return tx.Model(&VerificationCode{}).Where("id = ?", vc.ID).Update("used", true).Error
 }
 
 // --------------- Request DTO ---------------
@@ -112,7 +164,7 @@ func (h *AuthHandler) RequestVerificationCode(c *gin.Context) {
 		return
 	}
 
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Email = normalizeEmail(req.Email)
 
 	// 如果是密码重置，需要校验该邮箱（+用户名如提供）确实存在
 	if req.Purpose == "password_reset" {
@@ -125,6 +177,14 @@ func (h *AuthHandler) RequestVerificationCode(c *gin.Context) {
 		if count == 0 {
 			// 注意：对外返回模糊提示，避免泄露邮箱是否注册
 			c.JSON(http.StatusOK, gin.H{"message": "如果账号存在，我们已发送验证码到该邮箱"})
+			return
+		}
+	}
+	if req.Purpose == "register" && !bypassRegisterEmailCheck(req.Email) {
+		var count int64
+		h.DB.Model(&User{}).Where("email = ?", req.Email).Count(&count)
+		if count > 0 {
+			c.JSON(http.StatusConflict, gin.H{"error": "邮箱已注册，请直接登录或使用找回密码"})
 			return
 		}
 	}
@@ -148,6 +208,9 @@ func (h *AuthHandler) RequestVerificationCode(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成验证码失败"})
 		return
 	}
+	if fixedCode := fixedRegisterCodeForEmail(req.Email); req.Purpose == "register" && fixedCode != "" {
+		code = fixedCode
+	}
 	vc := VerificationCode{
 		Email:     req.Email,
 		Purpose:   req.Purpose,
@@ -167,10 +230,12 @@ func (h *AuthHandler) RequestVerificationCode(c *gin.Context) {
 	}
 	if err := mailer.SendVerificationCode(req.Email, code, req.Purpose); err != nil {
 		log.Printf("验证码发送失败: %v", err)
-		// 不把失败原因暴露给客户端
+		h.DB.Delete(&vc)
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "验证码发送失败，请稍后重试"})
+		return
 	}
 
-	resp := gin.H{"message": "验证码已发送（开发环境下请查看后端日志）"}
+	resp := gin.H{"message": "验证码已发送，请查收邮箱"}
 	// 开发环境便利：允许通过环境变量直接返回 code，方便本地联调
 	if c.GetHeader("X-Debug-Return-Code") == "1" {
 		resp["debug_code"] = code
@@ -186,7 +251,7 @@ func (h *AuthHandler) ResetPasswordWithCode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "请求参数有误"})
 		return
 	}
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Email = normalizeEmail(req.Email)
 	req.Code = strings.TrimSpace(req.Code)
 
 	var vc VerificationCode

@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }) => {
   const loginAction = async (data) => {
     setIsAuthLoading(true); // <-- **关键改动：开始登录时，设置加载状态**
     try {
-      const response = await axios.post('http://localhost:8080/api/auth/login', data);
+      const response = await axios.post('/api/auth/login', data);
       const newToken = response.data.token;
       if (newToken) {
         localStorage.setItem('authToken', newToken);
@@ -88,7 +88,7 @@ export const AuthProvider = ({ children }) => {
   
   const registerAction = async (data) => {
       try {
-        await axios.post('http://localhost:8080/api/auth/register', data);
+        await axios.post('/api/auth/register', data);
         return { success: true };
       } catch (error) {
         console.error("Registration failed:", error);

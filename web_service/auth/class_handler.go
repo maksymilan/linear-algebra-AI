@@ -1,15 +1,16 @@
 package auth
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base32"
-	"net/http"
-	"strings"
-	"strconv"
-	"bytes"
+	"encoding/json"
 	"io"
 	"mime/multipart"
-	"encoding/json"
+	"net/http"
+	"strconv"
+	"strings"
+	"workplace/web_service/aiclient"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -229,7 +230,7 @@ func (h *ClassHandler) UploadWeeklyMaterial(c *gin.Context) {
 	writer.Close()
 
 	// 请求 Python AI 服务
-	req, err := http.NewRequest("POST", "http://localhost:8000/api/v1/summarize_ppt", body)
+	req, err := http.NewRequest("POST", aiclient.URL("/api/v1/summarize_ppt"), body)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "内部错误"})
 		return
@@ -355,13 +356,13 @@ func (h *ClassHandler) GetClassDetail(c *gin.Context) {
 
 	// 4. 汇总每个学生的：提交数 / 已批改数 / AI 对话次数
 	type StudentStat struct {
-		ID            uint   `json:"id"`
-		Username      string `json:"username"`
-		DisplayName   string `json:"display_name"`
-		SubmitCount   int64  `json:"submit_count"`
-		GradedCount   int64  `json:"graded_count"`
-		ChatCount     int64  `json:"chat_count"`
-		LastActive    string `json:"last_active"`
+		ID          uint   `json:"id"`
+		Username    string `json:"username"`
+		DisplayName string `json:"display_name"`
+		SubmitCount int64  `json:"submit_count"`
+		GradedCount int64  `json:"graded_count"`
+		ChatCount   int64  `json:"chat_count"`
+		LastActive  string `json:"last_active"`
 	}
 
 	stats := make([]StudentStat, 0, len(students))

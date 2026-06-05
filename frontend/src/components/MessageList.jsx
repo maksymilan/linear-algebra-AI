@@ -35,6 +35,17 @@ const UserMessageContent = ({ text }) => {
     );
 };
 
+const formatDuration = (value) => {
+    const ms = Number(value);
+    if (!Number.isFinite(ms) || ms <= 0) return '';
+    if (ms < 1000) return `${Math.round(ms)} ms`;
+    const seconds = ms / 1000;
+    if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 1 : 0)} 秒`;
+    const minutes = Math.floor(seconds / 60);
+    const remain = Math.round(seconds % 60);
+    return `${minutes} 分 ${remain} 秒`;
+};
+
 // 参考教材折叠卡片：展示 RAG 检索到的片段出处
 const CitationCard = ({ citations }) => {
     const [open, setOpen] = useState(false);
@@ -71,11 +82,13 @@ const CitationCard = ({ citations }) => {
                             c?.week_num != null ? `第 ${c.week_num} 周` : null,
                             c?.page_num != null ? `第 ${c.page_num} 页` : null,
                         ].filter(Boolean).join(' · ');
+                        const sourceLabel = c?.source_type === 'exercise' ? '题目' : '教材片段';
                         return (
                             <li key={i} className="px-3 py-2.5 text-xs">
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="font-medium text-[#212529] truncate">
-                                        [{c?.index ?? i + 1}] 《{c?.textbook_name || '未知教材'}》
+                                        [{c?.index ?? i + 1}] {sourceLabel} · 《{c?.textbook_name || '未知教材'}》
+                                        {c?.exercise_number ? ` · ${c.exercise_number}` : ''}
                                     </div>
                                     {typeof c?.distance === 'number' && (
                                         <span className="shrink-0 font-mono text-[10px] text-[#868E96]">
@@ -115,7 +128,7 @@ const MessageList = ({ messages, isLoading, user }) => {
 
   const handleFeedback = async (messageId, score) => {
       try {
-          await axios.post(`http://localhost:8080/api/chat/messages/${messageId}/feedback`, { score });
+          await axios.post(`/api/chat/messages/${messageId}/feedback`, { score });
           // In a real app, you would update the local state to show it was submitted
           // For now, we just rely on visual feedback or state management in parent if needed
       } catch (err) {
@@ -168,23 +181,33 @@ const MessageList = ({ messages, isLoading, user }) => {
                 {/* AI 消息的教材引用卡片 */}
                 {msg.sender === 'ai' && <CitationCard citations={msg.citations} />}
 
-                {/* AI 反馈按钮 */}
-                {msg.sender === 'ai' && msg.id && !String(msg.id).startsWith('msg-') && (
-                    <div className="flex gap-2 mt-1.5 ml-2 text-gray-400">
-                        <button 
-                            onClick={() => handleFeedback(msg.id, 1)}
-                            className="p-1 hover:text-black hover:bg-gray-100 rounded transition-colors"
-                            title="有帮助"
-                        >
-                            <ThumbsUp size={14} />
-                        </button>
-                        <button 
-                            onClick={() => handleFeedback(msg.id, -1)}
-                            className="p-1 hover:text-black hover:bg-gray-100 rounded transition-colors"
-                            title="没看懂"
-                        >
-                            <ThumbsDown size={14} />
-                        </button>
+                {msg.sender === 'ai' && (
+                    <div className="flex items-center gap-2 mt-1.5 ml-2 text-gray-400 text-xs">
+                        {formatDuration(msg.responseDurationMs ?? msg.response_duration_ms) && (
+                            <span title="本次对话生成耗时">
+                                耗时 {formatDuration(msg.responseDurationMs ?? msg.response_duration_ms)}
+                            </span>
+                        )}
+
+                        {/* AI 反馈按钮 */}
+                        {msg.id && !String(msg.id).startsWith('msg-') && (
+                            <>
+                                <button
+                                    onClick={() => handleFeedback(msg.id, 1)}
+                                    className="p-1 hover:text-black hover:bg-gray-100 rounded transition-colors"
+                                    title="有帮助"
+                                >
+                                    <ThumbsUp size={14} />
+                                </button>
+                                <button
+                                    onClick={() => handleFeedback(msg.id, -1)}
+                                    className="p-1 hover:text-black hover:bg-gray-100 rounded transition-colors"
+                                    title="没看懂"
+                                >
+                                    <ThumbsDown size={14} />
+                                </button>
+                            </>
+                        )}
                     </div>
                 )}
             </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import axios from 'axios';
 import { AnimatePresence, motion } from 'framer-motion';
 import FormInput from '../components/FormInput';
 import PasswordInput from '../components/PasswordInput';
@@ -49,7 +50,18 @@ const LoginForm = ({ onLogin, loading, error, onSwitch, formValues, handleInputC
 );
 
 // 注册表单组件 (使用您提供的UI结构)
-const RegisterForm = ({ onRegister, loading, error, onSwitch, formValues, handleInputChange }) => (
+const RegisterForm = ({
+  onRegister,
+  loading,
+  error,
+  onSwitch,
+  formValues,
+  handleInputChange,
+  onRequestCode,
+  codeLoading,
+  codeCooldown,
+  info,
+}) => (
   <motion.div
     key="register"
     initial={{ opacity: 0, x: 50 }}
@@ -112,6 +124,27 @@ const RegisterForm = ({ onRegister, loading, error, onSwitch, formValues, handle
         placeholder="请输入您的邮箱"
         required
       />
+      <div className="verification-row">
+        <div className="verification-input">
+          <FormInput
+            label="邮箱验证码"
+            name="code"
+            value={formValues.code}
+            onChange={handleInputChange}
+            placeholder="请输入 6 位验证码"
+            required
+          />
+        </div>
+        <button
+          type="button"
+          className="secondary-button verification-button"
+          onClick={onRequestCode}
+          disabled={codeLoading || codeCooldown > 0 || !formValues.email.trim()}
+        >
+          {codeLoading ? '发送中...' : codeCooldown > 0 ? `${codeCooldown}s` : '发送验证码'}
+        </button>
+      </div>
+      {info && <p className="info-message">{info}</p>}
       <PasswordInput
         label="密码 (最少6位)"
         name="password"
@@ -144,7 +177,10 @@ const RegisterForm = ({ onRegister, loading, error, onSwitch, formValues, handle
 function LoginPage() {
   const [isLoginView, setIsLoginView] = useState(true);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [codeLoading, setCodeLoading] = useState(false);
+  const [codeCooldown, setCodeCooldown] = useState(0);
   
   // 在表单状态中加入 role，并设置默认值为 'student'
   const [formValues, setFormValues] = useState({
@@ -153,7 +189,8 @@ function LoginPage() {
     email: '',
     userIdNo: '',
     role: 'student', // 默认角色
-    inviteCode: ''
+    inviteCode: '',
+    code: ''
   });
 
   const { loginAction, registerAction } = useAuth();
@@ -164,13 +201,51 @@ function LoginPage() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormValues(prev => ({ ...prev, [name]: value }));
+    const nextValue = name === 'code' ? value.replace(/\D/g, '').slice(0, 6) : value;
+    setFormValues(prev => ({ ...prev, [name]: nextValue }));
+  };
+
+  const startCodeCooldown = () => {
+    setCodeCooldown(60);
+    const timer = setInterval(() => {
+      setCodeCooldown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const requestRegisterCode = async () => {
+    const email = formValues.email.trim();
+    if (!email) {
+      setError('请先填写邮箱');
+      return;
+    }
+    setError('');
+    setInfo('');
+    setCodeLoading(true);
+    try {
+      const resp = await axios.post('/api/auth/request-code', {
+        email,
+        purpose: 'register',
+      });
+      setInfo(resp.data?.message || '验证码已发送，请查收邮箱');
+      startCodeCooldown();
+    } catch (e) {
+      setError(e.response?.data?.error || '验证码发送失败');
+    } finally {
+      setCodeLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setInfo('');
 
     let result;
     if (isLoginView) {
@@ -191,12 +266,13 @@ function LoginPage() {
         password: formValues.password, 
         user_id_no: formValues.userIdNo,
         role: formValues.role, // 传递角色
-        invite_code: formValues.role === 'student' ? (formValues.inviteCode || '').trim().toUpperCase() : '' // 仅学生传邀请码
+        invite_code: formValues.role === 'student' ? (formValues.inviteCode || '').trim().toUpperCase() : '', // 仅学生传邀请码
+        code: formValues.code.trim()
       });
       if (result.success) {
         alert('注册成功！请登录。');
         setIsLoginView(true);
-        setFormValues(prev => ({ ...prev, password: '', email: '', userIdNo: '', role: 'student', inviteCode: '' }));
+        setFormValues(prev => ({ ...prev, password: '', email: '', userIdNo: '', role: 'student', inviteCode: '', code: '' }));
       } else {
         setError(result.error);
       }
@@ -231,6 +307,10 @@ function LoginPage() {
                 onSwitch={() => setIsLoginView(true)}
                 formValues={formValues}
                 handleInputChange={handleInputChange}
+                onRequestCode={requestRegisterCode}
+                codeLoading={codeLoading}
+                codeCooldown={codeCooldown}
+                info={info}
               />
             )}
           </AnimatePresence>

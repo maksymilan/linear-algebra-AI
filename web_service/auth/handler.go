@@ -3,8 +3,10 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +28,7 @@ type RegisterRequest struct {
 	UserIDNo   string `json:"user_id_no" binding:"required"`
 	Role       string `json:"role" binding:"required"` // **直接要求前端提供角色**
 	InviteCode string `json:"invite_code"`             // 可选参数：班级邀请码
+	Code       string `json:"code" binding:"required"` // 邮箱注册验证码
 }
 
 type LoginRequest struct {
@@ -48,6 +51,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role specified"})
 		return
 	}
+	req.Email = normalizeEmail(req.Email)
+	req.Code = strings.TrimSpace(req.Code)
 
 	var existingUser User
 	if h.DB.Where("username = ? OR email = ? OR user_id_no = ?", req.Username, req.Email, req.UserIDNo).First(&existingUser).Error == nil {
@@ -58,6 +63,17 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		return
+	}
+
+	tx := h.DB.Begin()
+	if err := ConsumeVerificationCode(tx, req.Email, "register", req.Code); err != nil {
+		tx.Rollback()
+		message := "验证码无效"
+		if errors.Is(err, ErrVerificationCodeExpired) {
+			message = "验证码已过期，请重新获取"
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": message})
 		return
 	}
 
@@ -72,17 +88,20 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	// 如果提供了邀请码，查询班级
 	if req.InviteCode != "" {
 		var class Class
-		if err := h.DB.Where("invite_code = ?", req.InviteCode).First(&class).Error; err != nil {
+		if err := tx.Where("invite_code = ?", req.InviteCode).First(&class).Error; err != nil {
+			tx.Rollback()
 			c.JSON(http.StatusBadRequest, gin.H{"error": "无效的班级邀请码"})
 			return
 		}
 		newUser.ClassID = &class.ID
 	}
 
-	if result := h.DB.Create(&newUser); result.Error != nil {
+	if result := tx.Create(&newUser); result.Error != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
+	tx.Commit()
 
 	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully"})
 }

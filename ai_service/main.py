@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from clients import client
 from config import resolve_model, resolve_model_id, settings
@@ -12,6 +13,7 @@ from file_utils import extract_text_from_file, file_to_base64
 from llm import chat_completion
 from memory import build_memory_state, build_rag_query
 from prompts import GRADING_FOLLOW_UP_PROMPT, GRADING_SYSTEM_PROMPT, PPT_SUMMARY_PROMPT, SYSTEM_PROMPT
+from question_bank import search_questions
 from rag import retrieve_textbook_context
 from response_utils import extract_model_title, parse_model_json
 from textbook_tasks import process_textbook_task
@@ -186,6 +188,10 @@ async def list_models(user_id: int = Query(0)):
         },
         "features": {
             "ocr_repair_enabled": settings.ocr_repair_enabled,
+            "ocr_max_concurrency": settings.ocr_max_concurrency,
+            "ocr_call_retries": settings.ocr_call_retries,
+            "embedding_call_retries": settings.embedding_call_retries,
+            "ai_connect_timeout_seconds": settings.ai_connect_timeout_seconds,
             "premium_chat_daily_limit": settings.premium_chat_daily_limit,
             "limited_chat_model_ids": settings.limited_chat_model_ids,
         },
@@ -224,6 +230,32 @@ async def delete_textbook_api(
     except Exception as exc:
         logger.error("Delete textbook chunks error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+class QuestionSearchRequest(BaseModel):
+    query: str = ""
+    question_type: Optional[str] = None
+    exercise_type: Optional[str] = None
+    has_answer: Optional[bool] = None
+    concept_tags: Optional[List[str]] = None
+    limit: int = 10
+    offset: int = 0
+
+
+@app.post("/api/v1/questions/search")
+async def search_questions_api(req: QuestionSearchRequest):
+    """题库混合检索：语义 + 关键词，支持题型 / 知识点 tag / 有无答案筛选。"""
+    results = search_questions(
+        query=req.query,
+        question_type=req.question_type,
+        exercise_type=req.exercise_type,
+        has_answer=req.has_answer,
+        concept_tags=req.concept_tags,
+        limit=req.limit,
+        offset=req.offset,
+        return_meta=True,
+    )
+    return {"count": len(results["results"]), **results}
 
 
 @app.post("/api/v1/ocr")

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"workplace/web_service/aiclient"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -85,7 +86,7 @@ func (h *TextbookHandler) UploadTextbook(c *gin.Context) {
 		_ = writer.WriteField("textbook_id", fmt.Sprintf("%d", id))
 		writer.Close()
 
-		req, err := http.NewRequest("POST", "http://localhost:8000/api/v1/textbook/ingest", reqBody)
+		req, err := http.NewRequest("POST", aiclient.URL("/api/v1/textbook/ingest"), reqBody)
 		if err == nil {
 			req.Header.Set("Content-Type", writer.FormDataContentType())
 			client := &http.Client{}
@@ -153,7 +154,7 @@ func (h *TextbookHandler) DeleteTextbook(c *gin.Context) {
 	_ = writer.WriteField("textbook_name", tb.Name)
 	writer.Close()
 
-	req, err := http.NewRequest("POST", "http://localhost:8000/api/v1/textbook/delete", reqBody)
+	req, err := http.NewRequest("POST", aiclient.URL("/api/v1/textbook/delete"), reqBody)
 	if err == nil {
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 		client := &http.Client{}

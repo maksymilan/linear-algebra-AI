@@ -33,6 +33,14 @@ class Settings:
     limited_chat_model_ids: List[str]
     premium_chat_daily_limit: int
     ocr_repair_enabled: bool
+    ocr_max_concurrency: int
+    ocr_call_retries: int
+    embedding_call_retries: int
+    ai_connect_timeout_seconds: float
+    ai_read_timeout_seconds: float
+    ai_write_timeout_seconds: float
+    ai_pool_timeout_seconds: float
+    ai_max_retries: int
     db_name: str
     db_user: str
     db_password: str
@@ -180,6 +188,7 @@ def _unsupported_params_by_model(groups: Dict[str, List[Dict[str, Any]]]) -> Dic
 _model_config = _load_model_config()
 _roles = _model_config.get("roles") if isinstance(_model_config.get("roles"), dict) else {}
 _features = _model_config.get("features") if isinstance(_model_config.get("features"), dict) else {}
+_client_config = _model_config.get("client") if isinstance(_model_config.get("client"), dict) else {}
 _limits = _model_config.get("limits") if isinstance(_model_config.get("limits"), dict) else {}
 _configured_groups = _model_config.get("model_groups") if isinstance(_model_config.get("model_groups"), dict) else {}
 
@@ -239,6 +248,14 @@ settings = Settings(
     limited_chat_model_ids=_limited_chat_model_ids,
     premium_chat_daily_limit=int(_limits.get("premium_chat_daily_limit") or _int_env("PREMIUM_CHAT_DAILY_LIMIT", 30)),
     ocr_repair_enabled=bool(_features.get("ocr_repair_enabled", _bool_env("AI_OCR_REPAIR_ENABLED", True))),
+    ocr_max_concurrency=max(1, int(_features.get("ocr_max_concurrency") or 5)),
+    ocr_call_retries=max(1, int(_features.get("ocr_call_retries") or 3)),
+    embedding_call_retries=max(1, int(_features.get("embedding_call_retries") or 3)),
+    ai_connect_timeout_seconds=float(_client_config.get("connect_timeout_seconds") or 30),
+    ai_read_timeout_seconds=float(_client_config.get("read_timeout_seconds") or 600),
+    ai_write_timeout_seconds=float(_client_config.get("write_timeout_seconds") or 600),
+    ai_pool_timeout_seconds=float(_client_config.get("pool_timeout_seconds") or 60),
+    ai_max_retries=max(0, int(_client_config.get("max_retries") or 0)),
     db_name=os.getenv("DB_NAME", "LA-DB"),
     db_user=os.getenv("DB_USER", "postgres"),
     db_password=os.getenv("DB_PASSWORD", "password"),

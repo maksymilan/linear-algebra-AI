@@ -7,7 +7,7 @@ import {
     Plus, Copy, Check, RefreshCw, X, Upload, FileText, Loader2
 } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:8080';
+const API_BASE_URL = '';
 
 const formatDate = (iso) => {
     if (!iso) return '—';

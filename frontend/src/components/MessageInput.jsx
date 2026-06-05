@@ -2,9 +2,9 @@
 
 import React, { useRef } from 'react';
 import FilePreview from './FilePreview';
-import { Paperclip, Send } from 'lucide-react';
+import { CircleStop, Paperclip, Send } from 'lucide-react';
 
-const MessageInput = ({ input, setInput, files, setFiles, onSend, isLoading }) => {
+const MessageInput = ({ input, setInput, files, setFiles, onSend, onCancel, isLoading }) => {
   const fileInputRef = useRef(null);
 
   const handleFileChange = (event) => {
@@ -23,6 +23,12 @@ const MessageInput = ({ input, setInput, files, setFiles, onSend, isLoading }) =
   const handleSubmit = (e) => {
     e.preventDefault();
     onSend();
+  };
+
+  const handleCancel = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onCancel();
   };
 
   return (
@@ -53,16 +59,28 @@ const MessageInput = ({ input, setInput, files, setFiles, onSend, isLoading }) =
             }
           }}
         />
-        <button 
-          type="submit" 
-          className={`p-2.5 rounded-xl flex-shrink-0 transition-colors ${
-            input.trim() || files.length > 0 ? 'bg-black text-white hover:bg-gray-800 shadow-md' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-          }`}
-          disabled={isLoading || (input.trim() === '' && files.length === 0)} 
-          title="发送"
-        >
-          <Send size={20} />
-        </button>
+        {isLoading ? (
+          <button
+            type="button"
+            className="p-2.5 rounded-xl flex-shrink-0 transition-colors bg-[#FFF5F5] text-[#C92A2A] hover:bg-[#FFE3E3] border border-[#FFC9C9]"
+            onMouseDown={handleCancel}
+            onClick={handleCancel}
+            title="取消本次对话"
+          >
+            <CircleStop size={20} />
+          </button>
+        ) : (
+          <button 
+            type="submit" 
+            className={`p-2.5 rounded-xl flex-shrink-0 transition-colors ${
+              input.trim() || files.length > 0 ? 'bg-black text-white hover:bg-gray-800 shadow-md' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+            disabled={input.trim() === '' && files.length === 0} 
+            title="发送"
+          >
+            <Send size={20} />
+          </button>
+        )}
       </form>
     </div>
   );

@@ -13,7 +13,17 @@
     "embedding": "embed_v_4_0"
   },
   "features": {
-    "ocr_repair_enabled": true
+    "ocr_repair_enabled": true,
+    "ocr_max_concurrency": 5,
+    "ocr_call_retries": 3,
+    "embedding_call_retries": 3
+  },
+  "client": {
+    "connect_timeout_seconds": 30,
+    "read_timeout_seconds": 600,
+    "write_timeout_seconds": 600,
+    "pool_timeout_seconds": 60,
+    "max_retries": 0
   },
   "limits": {
     "premium_chat_daily_limit": 30,
@@ -28,7 +38,7 @@
     "chat": [
       {
         "id": "default",
-        "model": "deepseek-v4-pro",
+        "model": "deepseek-v4-flash",
         "label": "默认模型"
       },
       {

@@ -19,13 +19,14 @@ type ChatSession struct {
 
 // ChatMessage 代表对话中的一条消息
 type ChatMessage struct {
-	ID            uint      `gorm:"primarykey" json:"id"`
-	SessionID     uint      `gorm:"column:session_id;index;not null" json:"chatSessionId"` // **修复: 映射到数据库的 session_id**
-	Role          string    `gorm:"column:role;size:20;not null" json:"sender"`            // **修复: 映射到数据库的 role ('user' or 'ai')**
-	Content       string    `gorm:"column:content;type:text;not null" json:"text"`         // 消息内容
-	Citations     string    `gorm:"column:citations;type:text" json:"-"`                   // **新增: RAG 教材检索引用 (JSON 数组字符串)，自定义 MarshalJSON 暴露为结构化数组**
-	FeedbackScore int       `gorm:"column:feedback_score;default:0" json:"feedbackScore"`  // **新增: RLHF 评价**
-	CreatedAt     time.Time `gorm:"column:created_at" json:"createdAt"`
+	ID                 uint      `gorm:"primarykey" json:"id"`
+	SessionID          uint      `gorm:"column:session_id;index;not null" json:"chatSessionId"` // **修复: 映射到数据库的 session_id**
+	Role               string    `gorm:"column:role;size:20;not null" json:"sender"`            // **修复: 映射到数据库的 role ('user' or 'ai')**
+	Content            string    `gorm:"column:content;type:text;not null" json:"text"`         // 消息内容
+	Citations          string    `gorm:"column:citations;type:text" json:"-"`                   // **新增: RAG 教材检索引用 (JSON 数组字符串)，自定义 MarshalJSON 暴露为结构化数组**
+	FeedbackScore      int       `gorm:"column:feedback_score;default:0" json:"feedbackScore"`  // **新增: RLHF 评价**
+	ResponseDurationMs *int64    `gorm:"column:response_duration_ms" json:"responseDurationMs,omitempty"`
+	CreatedAt          time.Time `gorm:"column:created_at" json:"createdAt"`
 }
 
 // MarshalJSON 让 Citations 字段在前端看到的是真正的 JSON 数组而不是一段转义的字符串。

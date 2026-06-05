@@ -12,6 +12,7 @@ const AssignmentIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="curren
 const CreateAssignmentIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
 const BookIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>;
 const ClassIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>;
+const QuestionBankIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>;
 
 
 const WorkspacePage = () => {
@@ -23,6 +24,7 @@ const WorkspacePage = () => {
         { title: 'AI 助教', icon: <ChatIcon />, path: '/chat', description: '随时提问，获取即时帮助，支持公式和矩阵可视化。' },
         { title: '课程作业', icon: <AssignmentIcon />, path: '/assignments', description: '查看和提交老师发布的作业，并获得AI的即时批改。' },
         { title: '自主批改', icon: <GradeIcon />, path: '/grading', description: '上传题目和你的解答，检验自己的学习效果。' },
+        { title: '题库', icon: <QuestionBankIcon />, path: '/question-bank', description: '按知识点、题型搜索教材例题与习题，收藏常练题目。' },
         { title: '我的班级', icon: <ClassIcon />, path: '/student/class', description: '使用老师提供的邀请码加入班级，并查看当前教学进度。' }
     ];
 
@@ -32,7 +34,8 @@ const WorkspacePage = () => {
         { title: '发布作业', icon: <CreateAssignmentIcon />, path: '/assignments/new', description: '为您的班级创建和发布新作业。' },
         { title: '查看提交', icon: <GradeIcon />, path: '/assignments', description: '跟踪学生的作业提交情况，查看AI的自动批改结果。' },
 		{ title: 'AI 助教', icon: <ChatIcon />, path: '/chat', description: '随时提问，获取即时帮助，支持公式和矩阵可视化。' },
-        { title: '教材管理', icon: <BookIcon />, path: '/textbooks', description: '上传并管理课程关联的PDF教材，AI将自动提取并更新知识库。' },
+        { title: '教材管理', icon: <BookIcon />, path: '/textbooks', description: '上传并管理课程关联的 PDF/PPT/Word 课件，AI将自动提取并更新知识库。' },
+        { title: '题库', icon: <QuestionBankIcon />, path: '/question-bank', description: '按知识点、题型搜索教材例题与习题，收藏常练题目。' },
     ];
 
     const modules = userRole === 'teacher' ? teacherModules : studentModules;

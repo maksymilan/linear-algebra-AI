@@ -4,7 +4,9 @@ package chat
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"workplace/web_service/aiclient"
 	"workplace/web_service/auth"
 )
 
@@ -149,7 +152,7 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 		return
 	}
 
-	targetURL := "http://localhost:8000/api/v1/chat"
+	targetURL := aiclient.URL("/api/v1/chat")
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	_ = writer.WriteField("prompt", prompt)
@@ -178,18 +181,23 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 	}
 	writer.Close()
 
-	proxyReq, _ := http.NewRequest("POST", targetURL, body)
+	proxyReq, _ := http.NewRequestWithContext(c.Request.Context(), "POST", targetURL, body)
 	proxyReq.Header.Set("Content-Type", writer.FormDataContentType())
 	client := &http.Client{Timeout: time.Second * 180}
+	aiStartedAt := time.Now()
 	resp, err := client.Do(proxyReq)
 	if err != nil {
 		tx.Rollback()
+		if errors.Is(err, context.Canceled) || c.Request.Context().Err() != nil {
+			return
+		}
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AI service is unreachable"})
 		return
 	}
 	defer resp.Body.Close()
 
 	responseBody, _ := io.ReadAll(resp.Body)
+	responseDurationMs := time.Since(aiStartedAt).Milliseconds()
 	if resp.StatusCode >= http.StatusBadRequest {
 		tx.Rollback()
 		var errResp struct {
@@ -231,7 +239,7 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 	}
 
 	userMessage := ChatMessage{SessionID: session.ID, Role: "user", Content: prompt, CreatedAt: time.Now()}
-	aiMessage := ChatMessage{SessionID: session.ID, Role: "ai", Content: aiMessageContent, Citations: citationsJSON, CreatedAt: time.Now()}
+	aiMessage := ChatMessage{SessionID: session.ID, Role: "ai", Content: aiMessageContent, Citations: citationsJSON, ResponseDurationMs: &responseDurationMs, CreatedAt: time.Now()}
 
 	if err := tx.Create(&[]ChatMessage{userMessage, aiMessage}).Error; err != nil {
 		tx.Rollback()
@@ -259,7 +267,7 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 
 func (h *ChatHandler) GetModelOptionsHandler(c *gin.Context) {
 	userID := userIDFromContext(c)
-	targetURL := fmt.Sprintf("http://localhost:8000/api/v1/models?user_id=%d", userID)
+	targetURL := fmt.Sprintf("%s?user_id=%d", aiclient.URL("/api/v1/models"), userID)
 	resp, err := http.Get(targetURL)
 	if err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AI service is unreachable"})

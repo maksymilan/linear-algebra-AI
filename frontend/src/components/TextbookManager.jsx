@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Upload, Book, CheckCircle, Clock, AlertCircle, RefreshCw, XCircle, Trash2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
-const API_BASE_URL = 'http://localhost:8080';
+const API_BASE_URL = '';
 const POLL_INTERVAL_MS = 3000;
 
 const TextbookManager = () => {
@@ -135,19 +135,19 @@ const TextbookManager = () => {
               />
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-medium text-[#868E96] mb-1">PDF 文件</label>
-              <input 
-                type="file" 
-                accept=".pdf"
+              <label className="block text-sm font-medium text-[#868E96] mb-1">课件文件 (PDF / PPT / Word)</label>
+              <input
+                type="file"
+                accept=".pdf,.ppt,.pptx,.doc,.docx"
                 onChange={(e) => {
                   const picked = e.target.files[0];
                   setFile(picked);
-                  // 用户尚未填写教材名称时，默认用 PDF 文件名（去掉扩展名）自动填入
+                  // 用户尚未填写教材名称时，默认用文件名（去掉扩展名）自动填入
                   if (picked && !name.trim()) {
-                    const base = picked.name.replace(/\.pdf$/i, '').trim();
+                    const base = picked.name.replace(/\.(pdf|pptx?|docx?)$/i, '').trim();
                     if (base) setName(base);
                   }
-                }} 
+                }}
                 className="w-full h-10 pr-3 leading-10 border border-[#DEE2E6] bg-white rounded-md text-sm overflow-hidden file:mr-3 file:h-10 file:px-3 file:border-0 file:bg-[#F8F9FA] file:text-sm file:text-[#212529] file:cursor-pointer hover:file:bg-[#DEE2E6] box-border"
                 required
               />

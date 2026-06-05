@@ -16,6 +16,7 @@ import CreateAssignmentPage from '../pages/CreateAssignmentPage';
 import ViewSubmissionsPage from '../pages/ViewSubmissionsPage';
 import VisualizerPage from '../pages/VisualizerPage';
 import TextbookManagerPage from '../pages/TextbookManagerPage';
+import QuestionBankPage from '../pages/QuestionBankPage';
 import ClassManagementPage from '../pages/ClassManagementPage';
 import StudentClassPage from '../pages/StudentClassPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
@@ -43,6 +44,9 @@ export const AppRoutes = () => {
       
       {/* 教材管理页面 */}
       <Route path="/textbooks" element={<ProtectedRoute><TextbookManagerPage /></ProtectedRoute>} />
+
+      {/* 题库（搜索 + 收藏） */}
+      <Route path="/question-bank" element={<ProtectedRoute><QuestionBankPage /></ProtectedRoute>} />
 
       {/* 教师 - 班级管理 */}
       <Route path="/teacher/classes" element={<ProtectedRoute><ClassManagementPage /></ProtectedRoute>} />

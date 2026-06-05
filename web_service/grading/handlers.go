@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"time"
+	"workplace/web_service/aiclient"
 	"workplace/web_service/chat" // 导入chat模型
 
 	"github.com/gin-gonic/gin"
@@ -38,7 +39,7 @@ func (h *GradingHandler) GradeHomeworkHandler(c *gin.Context) {
 	}
 
 	// 调用AI服务进行批改
-	targetURL := "http://localhost:8000/api/v1/grade"
+	targetURL := aiclient.URL("/api/v1/grade")
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	_ = writer.WriteField("problem_text", problemText)
@@ -111,7 +112,7 @@ func (h *GradingHandler) StartFollowUpChatHandler(c *gin.Context) {
 	}
 
 	// 2. 将完整的对话历史（包括批改上下文）发送给AI
-	targetURL := "http://localhost:8000/api/v1/grading/chat"
+	targetURL := aiclient.URL("/api/v1/grading/chat")
 	aiBody := &bytes.Buffer{}
 	writer := multipart.NewWriter(aiBody)
 	_ = writer.WriteField("problem_text", req.ProblemText)
@@ -174,7 +175,7 @@ func (h *GradingHandler) OcrHandler(c *gin.Context) {
 		return
 	}
 
-	targetURL := "http://localhost:8000/api/v1/ocr"
+	targetURL := aiclient.URL("/api/v1/ocr")
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 

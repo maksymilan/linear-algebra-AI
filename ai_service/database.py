@@ -32,14 +32,42 @@ def ensure_vector_index() -> None:
                 answer TEXT,
                 solution TEXT,
                 concepts TEXT,
+                concept_tags TEXT[],
+                exercise_type VARCHAR(20),
+                question_type VARCHAR(20),
+                has_answer BOOLEAN DEFAULT FALSE,
                 source_excerpt TEXT,
+                embedding vector(1536),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """
         )
+        # 已有库的平滑迁移：补齐题库新字段
+        cur.execute(
+            "ALTER TABLE textbook_exercises "
+            "ADD COLUMN IF NOT EXISTS embedding vector(1536), "
+            "ADD COLUMN IF NOT EXISTS concept_tags TEXT[], "
+            "ADD COLUMN IF NOT EXISTS exercise_type VARCHAR(20), "
+            "ADD COLUMN IF NOT EXISTS question_type VARCHAR(20), "
+            "ADD COLUMN IF NOT EXISTS has_answer BOOLEAN DEFAULT FALSE"
+        )
         cur.execute(
             "CREATE INDEX IF NOT EXISTS idx_textbook_exercises_textbook "
             "ON textbook_exercises (textbook_name, textbook_id)"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_textbook_exercises_embedding "
+            "ON textbook_exercises USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)"
+        )
+        # 题库混合检索：pg_trgm 关键词模糊（题干）+ concept_tags 数组筛选
+        cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_textbook_exercises_stem_trgm "
+            "ON textbook_exercises USING gin (stem gin_trgm_ops)"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_textbook_exercises_concept_tags "
+            "ON textbook_exercises USING gin (concept_tags)"
         )
         cur.execute(
             """
@@ -60,6 +88,6 @@ def ensure_vector_index() -> None:
         conn.commit()
         cur.close()
         conn.close()
-        logger.info("textbook_chunks ivfflat index is ready")
+        logger.info("textbook chunk and exercise ivfflat indexes are ready")
     except Exception as exc:
         logger.warning("Could not create ivfflat index; continuing without it: %s", exc)

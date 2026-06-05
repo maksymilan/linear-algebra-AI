@@ -5,24 +5,77 @@ import json
 import pymupdf
 import psycopg2
 import base64
+import shutil
+import subprocess
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Lock
+from threading import BoundedSemaphore, Lock
 from pgvector.psycopg2 import register_vector
 from dotenv import load_dotenv
 from tqdm import tqdm
 
 from clients import client
+from concepts_taxonomy import (
+    EXERCISE_TYPES,
+    concepts_prompt_block,
+    map_to_standard,
+    normalize_question_type,
+)
 from config import resolve_model, settings
+from embedding_utils import create_embeddings
 from llm import chat_completion
+from ocr_utils import build_vision_ocr_messages
 from response_utils import parse_model_json
 
 # 加载环境变量
 load_dotenv()
 
-# 获取 Embedding 和 VL 模型
-embedding_model = resolve_model("embedding")
+# 获取 VL 模型
 vl_model = resolve_model("ocr")
+ocr_llm_semaphore = BoundedSemaphore(settings.ocr_max_concurrency)
+
+
+# ---------------------------------------------------------------------------
+# Office 文档（PPT/Word）转 PDF
+# ---------------------------------------------------------------------------
+_OFFICE_EXTS = {".ppt", ".pptx", ".doc", ".docx"}
+
+
+def ensure_pdf(path: str) -> str:
+    """若是 PPT/Word，用 LibreOffice 转成 PDF 返回新路径；已是 PDF（或其他格式）原样返回。
+
+    依赖服务器安装 LibreOffice（提供 libreoffice / soffice 命令）。
+    """
+    ext = os.path.splitext(path)[1].lower()
+    if ext not in _OFFICE_EXTS:
+        return path
+
+    soffice = shutil.which("libreoffice") or shutil.which("soffice")
+    if not soffice:
+        raise RuntimeError(
+            "检测到 PPT/Word 文档，但服务器未安装 LibreOffice（缺少 libreoffice/soffice 命令），无法转换为 PDF。"
+        )
+
+    outdir = os.path.dirname(path) or "."
+    print(f"检测到 Office 文档，正在用 LibreOffice 转换为 PDF: {path}")
+    try:
+        subprocess.run(
+            [soffice, "--headless", "--convert-to", "pdf", "--outdir", outdir, path],
+            check=True,
+            capture_output=True,
+            timeout=300,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(f"LibreOffice 转换失败: {exc.stderr.decode('utf-8', 'ignore')[:500]}")
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("LibreOffice 转换超时（>300s）")
+
+    pdf_path = os.path.splitext(path)[0] + ".pdf"
+    if not os.path.exists(pdf_path):
+        raise RuntimeError(f"LibreOffice 转换后未找到输出 PDF: {pdf_path}")
+    print(f"转换完成: {pdf_path}")
+    return pdf_path
 
 
 # ---------------------------------------------------------------------------
@@ -57,6 +110,8 @@ _NOISE_KEYWORDS = (
 
 _URL_RE = re.compile(r"https?://\S+|www\.\S+|`https?://[^`]+`")
 _BACKTICK_URL_RE = re.compile(r"`\s*https?://[^`]+\s*`")
+_LATEX_DISPLAY_RE = re.compile(r"\\\[(.*?)\\\]", re.DOTALL)
+_LATEX_INLINE_RE = re.compile(r"\\\((.*?)\\\)", re.DOTALL)
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +128,52 @@ _MATH_SEG_RE = re.compile(
     r"(?:\s*(?:\\[A-Za-z]+(?:\{[^{}$]*\})*|[_^]\{[^{}$]*\}|[_^][A-Za-z0-9]|[=+\-*/.,]|\d+))*"
 )
 _LOOKS_LIKE_MATH_RE = re.compile(r"\\[A-Za-z]+|[_^][A-Za-z0-9{]")
+_LATEX_ENV_RE = re.compile(r"\\begin\{([A-Za-z*]+)\}[\s\S]*?\\end\{\1\}")
+
+
+def normalize_latex_delimiters(text: str) -> str:
+    r"""Convert \( \) / \[ \] output to the dollar delimiters used by the UI."""
+    if not text:
+        return ""
+
+    def display_repl(match):
+        content = match.group(1).replace("$", "").strip()
+        return f"$${content}$$" if content else ""
+
+    def inline_repl(match):
+        content = match.group(1).replace("$", "").strip()
+        return f"${content}$" if content else ""
+
+    text = _LATEX_DISPLAY_RE.sub(display_repl, text)
+    return _LATEX_INLINE_RE.sub(inline_repl, text)
+
+
+def _wrap_inline_math(seg: str) -> str:
+    out: list[str] = []
+    k = 0
+    while k < len(seg):
+        m = _MATH_SEG_RE.search(seg, k)
+        if not m:
+            out.append(seg[k:])
+            break
+        s, e = m.start(), m.end()
+        out.append(seg[k:s])
+        out.append("$" + m.group(0) + "$")
+        k = e
+    return "".join(out)
+
+
+def _wrap_plain_math(seg: str) -> str:
+    out: list[str] = []
+    last = 0
+    for m in _LATEX_ENV_RE.finditer(seg):
+        out.append(_wrap_inline_math(seg[last:m.start()]))
+        raw_env = m.group(0).strip()
+        if raw_env:
+            out.append(f"$$\n{raw_env}\n$$")
+        last = m.end()
+    out.append(_wrap_inline_math(seg[last:]))
+    return "".join(out)
 
 
 def auto_wrap_math(text: str) -> str:
@@ -112,21 +213,16 @@ def auto_wrap_math(text: str) -> str:
         if kind == "math" or not seg:
             wrapped_parts.append(seg)
             continue
-
-        out: list[str] = []
-        k = 0
-        while k < len(seg):
-            m = _MATH_SEG_RE.search(seg, k)
-            if not m:
-                out.append(seg[k:])
-                break
-            s, e = m.start(), m.end()
-            out.append(seg[k:s])
-            out.append("$" + m.group(0) + "$")
-            k = e
-        wrapped_parts.append("".join(out))
+        wrapped_parts.append(_wrap_plain_math(seg))
 
     return "".join(wrapped_parts)
+
+
+def normalize_latex_text(text: str) -> str:
+    """统一教材 / 题库入库前的 LaTeX 分隔符与裸公式兜底。"""
+    if not text:
+        return ""
+    return auto_wrap_math(normalize_latex_delimiters(str(text).strip()))
 
 
 def sanitize_ocr_text(text: str) -> str:
@@ -139,6 +235,7 @@ def sanitize_ocr_text(text: str) -> str:
     if not text:
         return ""
 
+    text = normalize_latex_delimiters(text)
     cleaned_lines = []
     for raw_line in text.splitlines():
         line = raw_line.rstrip()
@@ -206,142 +303,174 @@ OCR_PROMPT = (
 )
 
 OCR_REPAIR_PROMPT = """
-你是线性代数教材 OCR 质检与结构化抽取器。
-请阅读一页 OCR 文本，做三件事：
-1. 修复明显 OCR 错字、断行、重复页眉页脚和错误空格。
-2. 修复 LaTeX：所有数学公式必须使用合法 LaTeX，并用 $...$ 或 $$...$$ 包裹。
-3. 抽取本页出现的习题/例题/思考题，题干、答案、解析能从页面看出才填写，不能看出就留空字符串。
+你是线性代数教材 OCR 质检器。请修复一页 OCR 文本，只做两件事：
+1. 修复明显 OCR 错字、断行、重复页眉页脚和多余空格。
+2. 修复 LaTeX：所有数学公式必须是合法 LaTeX，并用 $...$ 或 $$...$$ 包裹。
 
 严格限制：
-- 不要编造课本没有出现的知识点、答案或证明。
-- 不要把普通正文误判为题目。
-- 可以补足因 OCR 断行导致的局部上下文，但不要新增外部知识。
-- 只输出 JSON，不要输出 Markdown 代码块或解释。
-
-JSON 格式：
-{
-  "cleaned_text": "修复后的完整页面文本",
-  "exercises": [
-    {
-      "exercise_number": "题号或例题编号，未知则空字符串",
-      "stem": "题干",
-      "answer": "页面上可见的答案，未知则空字符串",
-      "solution": "页面上可见的解析，未知则空字符串",
-      "concepts": ["相关概念关键词"],
-      "source_excerpt": "用于追溯的原文短摘录"
-    }
-  ]
-}
+- 不要编造课本没有出现的内容，不要新增外部知识。
+- 不要删除题目、定义、定理等正文内容。
+- 直接输出修复后的纯文本，不要 JSON、不要 Markdown 代码块、不要任何解释或寒暄。
 """
 
 EXERCISE_EXTRACT_PROMPT = """
-你是线性代数教材题目抽取器。
-请只从给定的单页教材文本中抽取习题、例题、思考题或练习题。
+你是线性代数教材题库抽取器。从给定的教材文本（含【第N页】页码标记，可能横跨多页）中抽取所有题目：例题、课后习题、思考题、练习题。
 
-严格限制：
-- 不要抽取普通正文、定义、定理或证明段落。
-- 不要编造答案或解析；页面没有明确给出就填空字符串。
-- 只输出 JSON，不要输出 Markdown 代码块或解释。
+判定与字段规则：
+- exercise_type：取 "example"（正文例题，通常紧跟解答）或 "homework"（课后习题，通常在章节末、常无解答）。
+- question_type：从 [计算, 证明, 选择, 填空, 判断, 简答] 中选最贴切的一个；判断不出留空字符串。
+- stem：完整题干。若一道题的题干与解答分布在不同页，请合并成一道完整的题，不要拆成两条。
+- answer / solution：只填文本中明确给出的答案 / 解析；看不到就留空字符串，严禁编造或自行解题。
+- concept_tags：见下方受控知识点词表，只能从中选词，最多 3 个；选不出给空数组 []。
+- page_num：该题题干所在页码（整数）。
+- source_excerpt：用于追溯的一句原文短摘录。
 
-JSON 格式：
+不要抽取：目录、章节标题编号列表、索引页（如连续的 "5.2.x 矩阵的初等变换" 编号行）、普通正文 / 定义 / 定理 / 证明叙述。
+
+{concepts_block}
+
+只输出 JSON，不要 Markdown 代码块或解释：
 {
   "exercises": [
     {
-      "exercise_number": "题号或例题编号，未知则空字符串",
-      "stem": "题干",
-      "answer": "页面上可见的答案，未知则空字符串",
-      "solution": "页面上可见的解析，未知则空字符串",
-      "concepts": ["相关概念关键词"],
-      "source_excerpt": "用于追溯的原文短摘录"
+      "exercise_number": "题号或例题编号，如 例3 / 习题2-5，未知留空",
+      "stem": "完整题干",
+      "answer": "可见答案，未知留空",
+      "solution": "可见解析，未知留空",
+      "exercise_type": "example 或 homework",
+      "question_type": "计算/证明/选择/填空/判断/简答 之一，未知留空",
+      "concept_tags": ["从受控词表选, 最多3个"],
+      "page_num": 0,
+      "source_excerpt": "原文短摘录"
     }
   ]
 }
 """
 
 
-def _normalize_exercises(raw_exercises, page_num):
+def ocr_chat_completion(*, model, messages, max_tokens, temperature=None):
+    kwargs = {
+        "messages": messages,
+        "max_tokens": max_tokens,
+    }
+    if temperature is not None:
+        kwargs["temperature"] = temperature
+
+    for attempt in range(settings.ocr_call_retries):
+        try:
+            with ocr_llm_semaphore:
+                return chat_completion(client, model=model, **kwargs)
+        except Exception:
+            if attempt >= settings.ocr_call_retries - 1:
+                raise
+            time.sleep(min(2 ** attempt, 5))
+
+
+def _normalize_exercises(raw_exercises, default_page=None):
     exercises = []
     if not isinstance(raw_exercises, list):
         return exercises
     for item in raw_exercises:
         if not isinstance(item, dict):
             continue
-        stem = str(item.get("stem") or "").strip()
-        if not stem:
+        stem = normalize_latex_text(item.get("stem") or "")
+        # 跳过空题干，以及被误抽的目录/索引行
+        if not stem or _is_index_chunk(stem):
             continue
-        concepts = item.get("concepts") or []
-        if isinstance(concepts, list):
-            concepts_text = ", ".join(str(concept).strip() for concept in concepts if str(concept).strip())
-        else:
-            concepts_text = str(concepts).strip()
+        answer = normalize_latex_text(item.get("answer") or "")
+        solution = normalize_latex_text(item.get("solution") or "")
+
+        # 题目来源类型：模型判定优先，缺失/非法时按有无解答兜底推断
+        ex_type = str(item.get("exercise_type") or "").strip().lower()
+        if ex_type not in EXERCISE_TYPES:
+            ex_type = "example" if (answer or solution) else "homework"
+
+        # 受控知识点 tag（兼容旧 concepts 字段名）
+        concept_tags = map_to_standard(item.get("concept_tags") or item.get("concepts") or [])
+
+        page_num = item.get("page_num") or default_page
+        try:
+            page_num = int(page_num) if page_num is not None else None
+        except (TypeError, ValueError):
+            page_num = default_page
+
         exercises.append(
             {
                 "page_num": page_num,
                 "exercise_number": str(item.get("exercise_number") or "").strip(),
                 "stem": stem,
-                "answer": str(item.get("answer") or "").strip(),
-                "solution": str(item.get("solution") or "").strip(),
-                "concepts": concepts_text,
-                "source_excerpt": str(item.get("source_excerpt") or "").strip(),
+                "answer": answer,
+                "solution": solution,
+                "exercise_type": ex_type,
+                "question_type": normalize_question_type(item.get("question_type") or ""),
+                "concept_tags": concept_tags,
+                "concepts": "、".join(concept_tags),  # 兼容旧文本列
+                "has_answer": bool(answer or solution),
+                "source_excerpt": normalize_latex_text(item.get("source_excerpt") or ""),
             }
         )
     return exercises
 
 
 def repair_ocr_page(page_text, page_num):
+    """逐页修复 OCR 文本质量（错字 / 断行 / LaTeX），返回纯文本。题目抽取不在此阶段进行。"""
     page_text = sanitize_ocr_text(page_text)
     if not settings.ocr_repair_enabled or not page_text or page_text in {"[空白]", "[解析失败]"}:
-        return page_text, []
+        return page_text
 
     try:
-        response = chat_completion(
-            client,
+        response = ocr_chat_completion(
             model=resolve_model("ocr_repair"),
             messages=[
                 {"role": "system", "content": OCR_REPAIR_PROMPT},
                 {
                     "role": "user",
-                    "content": (
-                        f"页码：{page_num}\n"
-                        "请修复并结构化以下 OCR 文本：\n\n"
-                        f"{page_text}"
-                    ),
+                    "content": f"页码：{page_num}\n请修复以下 OCR 文本：\n\n{page_text}",
                 },
             ],
             max_tokens=4096,
             temperature=0.1,
         )
-        raw = response.choices[0].message.content or ""
-        parsed = parse_model_json(raw)
-        if not isinstance(parsed, dict):
-            parsed = json.loads(raw)
-        cleaned_text = sanitize_ocr_text(str(parsed.get("cleaned_text") or page_text))
-        exercises = _normalize_exercises(parsed.get("exercises"), page_num)
-        if resolve_model("exercise_extract") != resolve_model("ocr_repair"):
-            exercises = extract_exercises_from_page(cleaned_text, page_num)
-        return cleaned_text or page_text, exercises
+        cleaned = sanitize_ocr_text(response.choices[0].message.content or "")
+        return cleaned or page_text
     except Exception as exc:
-        print(f"\n[警告] 第 {page_num} 页 OCR 修复/题目抽取失败，使用原始 OCR 文本: {exc}")
-        return page_text, []
+        print(f"\n[警告] 第 {page_num} 页 OCR 修复失败，使用原始 OCR 文本: {exc}")
+        return page_text
 
 
-def extract_exercises_from_page(cleaned_text, page_num):
-    if not cleaned_text or cleaned_text in {"[空白]", "[解析失败]"}:
+_PAGE_SPLIT_RE = re.compile(r"---\s*第\s*(\d+)\s*页\s*---")
+
+
+def split_pages(full_text):
+    """把 OCR 全文按 '--- 第 N 页 ---' 切成 [(page_num, text)]，并按页码升序排序。
+
+    兼容并发 OCR 导致 .ocr.txt 页面乱序的情况——排序后保证抽题 / 分块按真实页序进行。
+    """
+    if not full_text:
         return []
+    parts = _PAGE_SPLIT_RE.split(full_text)  # [前缀, 页码1, 正文1, 页码2, 正文2, ...]
+    pages = []
+    for i in range(1, len(parts) - 1, 2):
+        try:
+            pn = int(parts[i])
+        except ValueError:
+            continue
+        pages.append((pn, (parts[i + 1] or "").strip()))
+    pages.sort(key=lambda x: x[0])
+    return pages
+
+
+def _extract_exercises_llm(text_block, default_page):
+    """对一段（可能跨页的）文本调用 LLM 抽题，返回规范化后的题目列表。"""
+    if not text_block.strip():
+        return []
+    system_prompt = EXERCISE_EXTRACT_PROMPT.replace("{concepts_block}", concepts_prompt_block())
     try:
-        response = chat_completion(
-            client,
+        response = ocr_chat_completion(
             model=resolve_model("exercise_extract"),
             messages=[
-                {"role": "system", "content": EXERCISE_EXTRACT_PROMPT},
-                {
-                    "role": "user",
-                    "content": (
-                        f"页码：{page_num}\n"
-                        "请从以下页面文本中抽取题目：\n\n"
-                        f"{cleaned_text}"
-                    ),
-                },
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"请从以下教材文本中抽取题目：\n\n{text_block}"},
             ],
             max_tokens=4096,
             temperature=0.1,
@@ -350,10 +479,210 @@ def extract_exercises_from_page(cleaned_text, page_num):
         parsed = parse_model_json(raw)
         if not isinstance(parsed, dict):
             parsed = json.loads(raw)
-        return _normalize_exercises(parsed.get("exercises"), page_num)
+        return _normalize_exercises(parsed.get("exercises"), default_page)
     except Exception as exc:
-        print(f"\n[警告] 第 {page_num} 页题目抽取失败: {exc}")
+        print(f"\n[警告] 题目抽取失败 (起始页 {default_page}): {exc}")
         return []
+
+
+def _dedup_key(ex):
+    num = re.sub(r"\s+", "", ex.get("exercise_number") or "")
+    stem = re.sub(r"\s+", "", ex.get("stem") or "")[:40]
+    return (num, stem)
+
+
+def _exercise_progress_path(textbook_name):
+    safe = re.sub(r"[^\w一-鿿]+", "_", textbook_name or "textbook").strip("_") or "textbook"
+    return os.path.join(tempfile.gettempdir(), f"exercise_progress_{safe}.json")
+
+
+def _load_exercise_progress(path):
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return set(json.load(f))
+        except Exception:
+            return set()
+    return set()
+
+
+def _save_exercise_progress(path, done):
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(sorted(done), f)
+    except Exception as exc:
+        print(f"[警告] 写入抽题进度失败: {exc}")
+
+
+def _new_db_conn():
+    conn = psycopg2.connect(
+        dbname=settings.db_name,
+        user=settings.db_user,
+        password=settings.db_password,
+        host=settings.db_host,
+        port=settings.db_port,
+    )
+    register_vector(conn)
+    return conn
+
+
+def _ingest_exercise_batch(textbook_id, textbook_name, exercises):
+    """对一批题目做 embedding 并 INSERT（追加，不清空），返回写入条数。线程安全：自建连接。"""
+    searchable = []
+    texts = []
+    for ex in exercises:
+        st = exercise_search_text(ex)
+        if not st:
+            continue
+        searchable.append(ex)
+        texts.append(st)
+    if not searchable:
+        return 0
+
+    embeddings = []
+    batch_size = 50
+    for i in range(0, len(texts), batch_size):
+        embeddings.extend(get_embeddings(texts[i:i + batch_size]))
+
+    conn = _new_db_conn()
+    cur = conn.cursor()
+    try:
+        for ex, emb in zip(searchable, embeddings):
+            cur.execute(
+                """
+                INSERT INTO textbook_exercises
+                    (textbook_id, textbook_name, page_num, exercise_number, stem, answer, solution,
+                     concepts, concept_tags, exercise_type, question_type, has_answer, source_excerpt, embedding)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    textbook_id,
+                    textbook_name,
+                    ex.get("page_num"),
+                    ex.get("exercise_number", ""),
+                    ex.get("stem", ""),
+                    ex.get("answer", ""),
+                    ex.get("solution", ""),
+                    ex.get("concepts", ""),
+                    ex.get("concept_tags") or [],
+                    ex.get("exercise_type", ""),
+                    ex.get("question_type", ""),
+                    bool(ex.get("has_answer")),
+                    ex.get("source_excerpt", ""),
+                    emb,
+                ),
+            )
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+    return len(searchable)
+
+
+def _delete_exercises(textbook_id, textbook_name):
+    conn = _new_db_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "DELETE FROM textbook_exercises WHERE textbook_name = %s OR textbook_id = %s",
+        (textbook_name, textbook_id),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def _dedup_exercises_in_db(textbook_name):
+    """入库后去重：同书内 (题号, 题干前40字) 相同的只保留最小 id。"""
+    conn = _new_db_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        DELETE FROM textbook_exercises a
+        USING textbook_exercises b
+        WHERE a.id > b.id
+          AND a.textbook_name = %s AND b.textbook_name = %s
+          AND COALESCE(a.exercise_number, '') = COALESCE(b.exercise_number, '')
+          AND LEFT(a.stem, 40) = LEFT(b.stem, 40)
+        """,
+        (textbook_name, textbook_name),
+    )
+    removed = cur.rowcount
+    conn.commit()
+    cur.close()
+    conn.close()
+    return removed
+
+
+def extract_and_ingest_exercises(
+    full_text, textbook_id, textbook_name,
+    window=3, stride=2, max_workers=5, resume=True,
+):
+    """并发滑动窗口抽题 + 每窗口增量入库 + 断点续传。
+
+    - 并发：复用 ocr_chat_completion 内的 semaphore 控制实际 API 并发。
+    - 增量入库：每个窗口抽完立即写库，进程被中断也不丢已入库的题。
+    - 断点续传：进度文件记录已完成窗口，重跑跳过它们；首次运行才清空该书旧题。
+    - 去重：入库时允许少量跨窗口重复，全部完成后用 SQL 去重。
+    """
+    pages = split_pages(full_text)
+    if not pages:
+        print("题库抽取：未解析到任何页面。")
+        return 0
+
+    window_starts = list(range(0, len(pages), max(1, stride)))
+    progress_path = _exercise_progress_path(textbook_name)
+    done = _load_exercise_progress(progress_path) if resume else set()
+
+    if not done:
+        # 首次运行：清空旧题并重置进度
+        _delete_exercises(textbook_id, textbook_name)
+        if os.path.exists(progress_path):
+            try:
+                os.remove(progress_path)
+            except Exception:
+                pass
+        done = set()
+
+    todo = [i for i in window_starts if i not in done]
+    print(
+        f"题库抽取：{len(pages)} 页 / {len(window_starts)} 窗口，"
+        f"待处理 {len(todo)}（已完成 {len(done)}），并发 {max_workers} ..."
+    )
+
+    lock = Lock()
+    total = [0]
+
+    def process_window(i):
+        window_pages = pages[i:i + window]
+        start_page = window_pages[0][0]
+        block = "\n\n".join(f"【第{pn}页】\n{txt}" for pn, txt in window_pages if txt.strip())
+        exs = _extract_exercises_llm(block, start_page)
+        n = _ingest_exercise_batch(textbook_id, textbook_name, exs)
+        with lock:
+            done.add(i)
+            _save_exercise_progress(progress_path, done)
+            total[0] += n
+        return n
+
+    with tqdm(total=len(window_starts), initial=len(done), desc="题库抽取") as pbar:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(process_window, i): i for i in todo}
+            for fut in as_completed(futures):
+                try:
+                    fut.result()
+                except Exception as exc:
+                    print(f"\n[警告] 窗口抽题失败: {exc}")
+                pbar.update(1)
+
+    removed = _dedup_exercises_in_db(textbook_name)
+    print(f"题库入库完成：写入 {total[0]} 题，去重移除 {removed} 题。")
+    # 成功完成，清理进度文件
+    if os.path.exists(progress_path):
+        try:
+            os.remove(progress_path)
+        except Exception:
+            pass
+    return total[0]
 
 def extract_text_via_ocr(pdf_path, textbook_id=None, max_workers=5, return_metadata=False):
     print(f"正在读取 PDF: {pdf_path} (启用大模型 OCR 提取模式, 并发线程: {max_workers}) ...")
@@ -406,13 +735,18 @@ def extract_text_via_ocr(pdf_path, textbook_id=None, max_workers=5, return_metad
     
     # 预先分配好结果数组，保证顺序
     results = [""] * total_pages
-    exercise_results = []
-    
+
     # 锁用于保护写入文件和更新进度条
     file_lock = Lock()
     
     # 记录目前已完成的总页数（包含之前缓存的）
     current_processed_pages = len(completed_pages)
+
+    def fallback_page_text(page):
+        try:
+            return sanitize_ocr_text(page.get_text().strip())
+        except Exception:
+            return ""
 
     def process_page(i):
         page = doc[i]
@@ -421,50 +755,40 @@ def extract_text_via_ocr(pdf_path, textbook_id=None, max_workers=5, return_metad
         base64_image = base64.b64encode(img_bytes).decode('utf-8')
         data_url = f"data:image/png;base64,{base64_image}"
         
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": OCR_PROMPT
-                    },
-                    {
-                        "type": "image_url", 
-                        "image_url": {"url": data_url}
-                    }
-                ]
-            }
-        ]
-        
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                response = chat_completion(
-                    client,
-                    model=vl_model, 
-                    messages=messages, 
-                    max_tokens=2048,
-                    temperature=0.1
-                )
-                page_text = response.choices[0].message.content or ""
-                # 清洗掉模型"排版建议""寒暄"之类的脏行
-                page_text, page_exercises = repair_ocr_page(page_text, i + 1)
+        messages = build_vision_ocr_messages(vl_model, data_url, OCR_PROMPT)
 
-                formatted_text = f"\n\n--- 第 {i+1} 页 ---\n\n" + page_text + "\n"
-                
-                # 实时追加写入文件 (加锁防冲突)
-                with file_lock:
-                    with open(output_txt_path, "a", encoding="utf-8") as f:
-                        f.write(formatted_text)
-                
-                return i, formatted_text, page_exercises
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    time.sleep(2)
-                else:
-                    print(f"\n[警告] 第 {i+1} 页 OCR 解析失败: {e}")
-                    return i, f"\n\n--- 第 {i+1} 页 ---\n\n[解析失败]\n", []
+        try:
+            response = ocr_chat_completion(
+                model=vl_model,
+                messages=messages,
+                max_tokens=2048,
+                temperature=0.1,
+            )
+            page_text = response.choices[0].message.content or ""
+        except Exception as exc:
+            page_text = fallback_page_text(page)
+            if page_text:
+                print(f"\n[警告] 第 {i+1} 页 OCR 请求失败，已使用 PDF 文本层兜底: {exc}")
+            else:
+                page_text = "[解析失败]"
+
+        if not page_text.strip():
+            page_text = fallback_page_text(page)
+            if page_text:
+                print(f"\n[警告] 第 {i+1} 页 OCR 模型返回空内容，已使用 PDF 文本层兜底。")
+            else:
+                page_text = "[空白]"
+
+        # 清洗掉模型"排版建议""寒暄"之类的脏行 + 修复文本质量
+        page_text = repair_ocr_page(page_text, i + 1)
+        formatted_text = f"\n\n--- 第 {i+1} 页 ---\n\n" + page_text + "\n"
+
+        # 实时追加写入文件 (加锁防冲突)
+        with file_lock:
+            with open(output_txt_path, "a", encoding="utf-8") as f:
+                f.write(formatted_text)
+
+        return i, formatted_text
 
     # 使用线程池并发执行
     with tqdm(total=total_pages, initial=len(completed_pages), desc="AI 视觉 OCR 并发解析") as pbar:
@@ -474,9 +798,8 @@ def extract_text_via_ocr(pdf_path, textbook_id=None, max_workers=5, return_metad
             
             # 获取结果
             for future in as_completed(future_to_page):
-                page_index, text_result, page_exercises = future.result()
+                page_index, text_result = future.result()
                 results[page_index] = text_result
-                exercise_results.extend(page_exercises)
                 pbar.update(1)
                 
                 # 实时更新数据库进度
@@ -523,7 +846,8 @@ def extract_text_via_ocr(pdf_path, textbook_id=None, max_workers=5, return_metad
                      
     final_text = "".join([res for res in results if res])
     if return_metadata:
-        return final_text, exercise_results
+        # 兼容旧签名：题目抽取已移至 extract_exercises_from_fulltext，此处题目恒为空
+        return final_text, []
     return final_text
 
 def chunk_text(text, chunk_size=800, overlap=100):
@@ -531,21 +855,17 @@ def chunk_text(text, chunk_size=800, overlap=100):
     paragraphs = [part.strip() for part in re.split(r"\n\s*\n+", text) if part.strip()]
     chunks = []
     current = ""
-    previous_tail = ""
 
     for paragraph in paragraphs:
         if len(paragraph) > chunk_size:
+            # 段落本身超长：先收尾当前块，再对长段落滑动硬切。
+            # 仅做内容重叠，不再注入「上下文提示：上一片段结尾…」前缀——那是检索结果重复的根源。
             if current.strip():
                 chunks.append(current.strip())
-                previous_tail = current[-overlap:]
                 current = ""
             start = 0
             while start < len(paragraph):
-                part = paragraph[start:start + chunk_size]
-                if previous_tail:
-                    part = f"【上下文提示】上一片段结尾：{previous_tail}\n\n{part}"
-                chunks.append(part.strip())
-                previous_tail = part[-overlap:]
+                chunks.append(paragraph[start:start + chunk_size].strip())
                 start += max(1, chunk_size - overlap)
             continue
 
@@ -556,65 +876,58 @@ def chunk_text(text, chunk_size=800, overlap=100):
 
         if current.strip():
             chunks.append(current.strip())
-            previous_tail = current[-overlap:]
         current = paragraph
 
     if current.strip():
-        if previous_tail and len(current) + len(previous_tail) + 20 <= chunk_size + overlap:
-            current = f"【上下文提示】上一片段结尾：{previous_tail}\n\n{current}"
         chunks.append(current.strip())
 
     print(f"共生成 {len(chunks)} 个文本块。")
     return chunks
 
+_SECTION_NUM_RE = re.compile(r"\d+\.\d+\.\d+")
+
+
+def _is_index_chunk(text: str) -> bool:
+    """目录/习题索引页检测：X.Y.Z 格式的编号出现 8 次以上，说明是索引而非正文内容。"""
+    clean = re.sub(r"^【上下文提示】.*?\n\n", "", text, flags=re.DOTALL).strip()
+    return len(_SECTION_NUM_RE.findall(clean)) >= 8
+
+
 def get_embeddings(texts):
-    # 批量获取 embedding
-    response = client.embeddings.create(
-        input=texts,
-        model=embedding_model
-    )
-    return [data.embedding for data in response.data]
+    return create_embeddings(texts)
+
+
+def exercise_search_text(exercise):
+    """用于 embedding 的检索文本：聚焦题干 + 知识点 + 题型，不混入大段答案/解析（LaTeX 会稀释语义）。"""
+    parts = []
+    stem = str(exercise.get("stem") or "").strip()
+    if stem:
+        parts.append(f"题目：{stem}")
+    tags = exercise.get("concept_tags") or []
+    if isinstance(tags, (list, tuple)):
+        tags_text = "、".join(str(t).strip() for t in tags if str(t).strip())
+    else:
+        tags_text = str(tags).strip()
+    if tags_text:
+        parts.append(f"知识点：{tags_text}")
+    question_type = str(exercise.get("question_type") or "").strip()
+    if question_type:
+        parts.append(f"题型：{question_type}")
+    return "\n".join(parts)
+
 
 def ingest_exercises_to_db(textbook_id, textbook_name, exercises):
+    """清空该书旧题后一次性批量入库（用于已有完整 exercises 列表的场景）。
+
+    生产流程请用 extract_and_ingest_exercises（并发 + 增量入库 + 断点续传）。
+    """
     if not exercises:
         print("未抽取到可入库的题目。")
         return
-
     print(f"正在写入 {len(exercises)} 道题目...")
-    conn = psycopg2.connect(
-        dbname=settings.db_name,
-        user=settings.db_user,
-        password=settings.db_password,
-        host=settings.db_host,
-        port=settings.db_port,
-    )
-    cur = conn.cursor()
-    cur.execute(
-        "DELETE FROM textbook_exercises WHERE textbook_name = %s OR textbook_id = %s",
-        (textbook_name, textbook_id),
-    )
-    for exercise in exercises:
-        cur.execute(
-            """
-            INSERT INTO textbook_exercises
-                (textbook_id, textbook_name, page_num, exercise_number, stem, answer, solution, concepts, source_excerpt)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                textbook_id,
-                textbook_name,
-                exercise.get("page_num"),
-                exercise.get("exercise_number", ""),
-                exercise.get("stem", ""),
-                exercise.get("answer", ""),
-                exercise.get("solution", ""),
-                exercise.get("concepts", ""),
-                exercise.get("source_excerpt", ""),
-            ),
-        )
-    conn.commit()
-    cur.close()
-    conn.close()
+    _delete_exercises(textbook_id, textbook_name)
+    n = _ingest_exercise_batch(textbook_id, textbook_name, exercises)
+    print(f"题目入库完成：{n} 题。")
 
 
 def ingest_to_db(textbook_name, week_num, chunks, textbook_id=None):
@@ -644,15 +957,17 @@ def ingest_to_db(textbook_name, week_num, chunks, textbook_id=None):
         batch_chunks_raw = chunks[i:i+batch_size]
         # 入库前再清洗一次，避免旧缓存里的脏行流入向量库
         batch_chunks = [sanitize_ocr_text(ch) for ch in batch_chunks_raw]
-        # 过滤掉清洗后变空的 chunk
-        batch_chunks = [ch for ch in batch_chunks if ch.strip()]
+        # 过滤掉清洗后变空的 chunk，以及目录/索引型 chunk
+        batch_chunks = [ch for ch in batch_chunks if ch.strip() and not _is_index_chunk(ch)]
         if not batch_chunks:
             continue
         try:
             embeddings = get_embeddings(batch_chunks)
         except Exception as e:
             print(f"\n获取 Embedding 失败 (批次 {i//batch_size + 1}): {e}")
-            continue
+            cur.close()
+            conn.close()
+            raise
         
         for chunk, emb in zip(batch_chunks, embeddings):
             cur.execute(
@@ -667,15 +982,34 @@ def ingest_to_db(textbook_name, week_num, chunks, textbook_id=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="将课本 PDF 解析、向量化并导入数据库")
-    parser.add_argument("--file", required=True, help="PDF 文件路径")
+    parser.add_argument("--file", help="PDF 文件路径（全新解析，逐页 OCR）")
+    parser.add_argument("--from-ocr", dest="from_ocr", help="已有 .ocr.txt 路径（跳过 OCR，直接重建分块+题库）")
     parser.add_argument("--name", required=True, help="课本名称 (如: 线性代数同济第七版)")
     parser.add_argument("--week", type=int, default=1, help="该内容对应的教学周 (默认: 1)")
+    parser.add_argument("--textbook-id", dest="textbook_id", type=int, default=None, help="课本 ID（可选）")
+    parser.add_argument("--skip-exercises", dest="skip_exercises", action="store_true", help="只入正文，不抽题库")
     args = parser.parse_args()
 
-    if not os.path.exists(args.file):
-        print(f"错误: 找不到文件 {args.file}")
+    if args.from_ocr:
+        if not os.path.exists(args.from_ocr):
+            print(f"错误: 找不到 OCR 文件 {args.from_ocr}")
+            exit(1)
+        with open(args.from_ocr, "r", encoding="utf-8") as f:
+            text = f.read()
+        print(f"已从 {args.from_ocr} 读取 OCR 文本（跳过视觉 OCR）。")
+    elif args.file:
+        if not os.path.exists(args.file):
+            print(f"错误: 找不到文件 {args.file}")
+            exit(1)
+        text = extract_text_via_ocr(args.file)
+    else:
+        print("错误: 必须提供 --file 或 --from-ocr 之一")
         exit(1)
 
-    text = extract_text_via_ocr(args.file)
     chunks = chunk_text(text)
-    ingest_to_db(args.name, args.week, chunks)
+    ingest_to_db(args.name, args.week, chunks, textbook_id=args.textbook_id)
+
+    if not args.skip_exercises:
+        extract_and_ingest_exercises(text, args.textbook_id, args.name)
+
+    print("\n✅ 完成。")
