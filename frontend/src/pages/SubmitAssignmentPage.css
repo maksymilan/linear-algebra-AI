@@ -1,180 +1,96 @@
-/* src/pages/SubmitAssignmentPage.css - 极简黑白灰主题 */
-
-.submit-page-container {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    min-height: 100vh;
-    background-color: #F1F3F5;
-    padding: 2.5rem;
-    box-sizing: border-box;
+.submit-assignment__alert {
+  margin-bottom: 0.8rem;
 }
 
-.submit-page-card {
-    width: 100%;
-    max-width: 800px;
-    background: #ffffff;
-    border: 1px solid #DEE2E6;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    padding: 2.5rem 3rem;
-    position: relative;
+.submit-assignment__stack {
+  display: grid;
+  gap: 1rem;
 }
 
-.submit-page-header h1 {
-    font-size: 1.8rem;
-    margin: 1rem 0 1.5rem 0;
-    color: #212529;
-    font-weight: 600;
-    text-align: center;
+.submit-assignment__problem,
+.submit-assignment__upload {
+  padding: 1.2rem;
 }
 
-.problem-panel {
-    background: #F8F9FA;
-    padding: 1.5rem;
-    border-radius: 8px;
-    border: 1px solid #E9ECEF;
-    margin-bottom: 2rem;
-    color: #212529;
-}
-.problem-panel p {
-    margin-top: 0;
-    color: #495057;
+.submit-assignment__problem h2,
+.submit-assignment__upload h2 {
+  margin: 0;
+  font-size: 0.9rem;
 }
 
-.upload-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+.submit-assignment__problem > div {
+  min-width: 0;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.88rem;
+  line-height: 1.75;
 }
 
-.file-upload-area {
-    border: 2px dashed #DEE2E6;
-    border-radius: 8px;
-    padding: 2.5rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.15s ease-in-out;
-    background-color: #FFFFFF;
+.submit-assignment__upload form {
+  display: grid;
+  gap: 1rem;
 }
 
-.file-upload-area:hover {
-    border-color: #212529;
-    background-color: #F8F9FA;
+.submit-assignment__upload-heading p {
+  margin: 0.3rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.74rem;
 }
 
-.file-upload-area .upload-icon-wrapper {
-    width: 50px;
-    height: 50px;
-    background-color: #F1F3F5;
-    color: #212529;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 0 auto 1rem auto;
-}
-.file-upload-area .upload-icon-wrapper svg {
-    width: 24px;
-    height: 24px;
-}
-
-.file-upload-area p {
-    margin: 0;
-    color: #868E96;
-    font-weight: 500;
+.submit-assignment__dropzone {
+  display: flex;
+  min-height: 150px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1rem;
+  border: 1px dashed #a1a1aa;
+  border-radius: var(--border-radius-lg);
+  background: #fafafa;
+  color: #52525b;
+  text-align: center;
 }
 
-.selected-file-info {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-    padding: 0.5rem 1rem;
-    background-color: #F8F9FA;
-    border: 1px solid #DEE2E6;
-    border-radius: 20px;
-    font-weight: 500;
-    color: #212529;
-}
-.selected-file-info svg {
-    width: 16px;
-    height: 16px;
+.submit-assignment__dropzone:hover {
+  border-color: #18181b;
+  background: #f4f4f5;
+  color: #18181b;
 }
 
-.upload-form input[type="file"] {
-    display: none;
+.submit-assignment__dropzone strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.submit-button {
-    padding: 0.8rem 1.5rem;
-    border: 1px solid #212529;
-    border-radius: 8px;
-    background-color: #212529;
-    color: #ffffff;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s ease-in-out;
-}
-.submit-button:hover:not(:disabled) {
-    background-color: #000000;
-    border-color: #000000;
-}
-.submit-button:disabled {
-    background-color: #ADB5BD;
-    border-color: #ADB5BD;
-    cursor: not-allowed;
+.submit-assignment__dropzone span {
+  color: var(--color-text-secondary);
+  font-size: 0.7rem;
 }
 
-.submission-success-view {
-    text-align: center;
-    padding: 3rem 0;
-}
-.submission-success-view svg {
-    width: 60px;
-    height: 60px;
-    margin-bottom: 1rem;
-    color: #212529 !important;
-    stroke: #212529 !important;
-}
-.submission-success-view h2 {
-    font-size: 1.6rem;
-    color: #212529;
-    font-weight: 600;
-    margin: 0.5rem 0 0.75rem 0;
-}
-.submission-success-view p {
-    color: #868E96;
-    margin: 0;
+.submit-assignment__success {
+  display: flex;
+  min-height: 240px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
 }
 
-.back-button {
-    position: absolute;
-    top: 1.8rem;
-    left: 2rem;
-    background: none;
-    border: 1px solid #DEE2E6;
-    padding: 0.4rem 0.9rem;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    color: #495057;
-    font-family: inherit;
-    transition: all 0.15s ease-in-out;
-}
-.back-button:hover {
-    color: #212529;
-    border-color: #212529;
-    background-color: #F8F9FA;
+.submit-assignment__success svg {
+  color: var(--color-success);
 }
 
-.error-message {
-    color: #dc3545;
-    font-weight: 500;
-    background-color: #FFF5F5;
-    border: 1px solid #FFE3E3;
-    padding: 0.6rem 0.9rem;
-    border-radius: 6px;
-    font-size: 0.9rem;
+.submit-assignment__success h2 {
+  margin-top: 0.7rem;
+}
+
+.submit-assignment__success p {
+  margin: 0.4rem 0 1rem;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
 }

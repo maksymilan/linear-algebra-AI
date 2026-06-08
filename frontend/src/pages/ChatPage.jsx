@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -6,7 +6,12 @@ import MessageList from '../components/MessageList';
 import MessageInput from '../components/MessageInput';
 import ChatHistorySidebar from '../components/ChatHistorySidebar';
 import MathCalculator from '../components/MathCalculator';
-import { Calculator } from 'lucide-react';
+import ChatNavigationRail from '../components/layout/ChatNavigationRail';
+import Button from '../components/ui/Button';
+import IconButton from '../components/ui/IconButton';
+import { useToast } from '../contexts/ToastContext';
+import { Blocks, Bot, Calculator, PanelLeft, X } from 'lucide-react';
+import './ChatPage.css';
 
 const API_BASE_URL = '';
 const LAST_CHAT_ID_PREFIX = 'la-ai:last-chat-id';
@@ -20,12 +25,9 @@ const isPremiumModelExhausted = (model, modelConfig) => {
     return limitedIds.includes(model?.id) && typeof remaining === 'number' && remaining <= 0;
 };
 
-// --- 图标 ---
-const AiIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8"/><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 2v2"/><path d="M9 2v2"/></svg>;
-const VisIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>;
-
 const ChatPage = () => {
     const { user, token } = useAuth();
+    const { showToast } = useToast();
     const navigate = useNavigate();
     const { sessionId } = useParams();
 
@@ -35,16 +37,61 @@ const ChatPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
+    const [isMobileHistoryOpen, setIsMobileHistoryOpen] = useState(false);
     const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
     const [fetchedMessageSessionIds, setFetchedMessageSessionIds] = useState(() => new Set());
     const [modelConfig, setModelConfig] = useState(null);
     const [selectedModelId, setSelectedModelId] = useState('default');
+    const chatPageRef = useRef(null);
     const activeRequestRef = useRef(null);
     const sendingRef = useRef(false);
 
     const activeChat = useMemo(() => chats[sessionId] || null, [chats, sessionId]);
     const activeMessages = useMemo(() => activeChat?.messages || [], [activeChat]);
     const lastChatStorageKey = useMemo(() => getLastChatStorageKey(user), [user]);
+
+    useLayoutEffect(() => {
+        const previousBodyOverflow = document.body.style.overflow;
+        const previousHtmlOverflow = document.documentElement.style.overflow;
+        const previousScrollRestoration = window.history.scrollRestoration;
+        const resetScrollPositions = () => {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+
+            const root = chatPageRef.current;
+            if (!root) return;
+            [
+                root,
+                ...root.querySelectorAll([
+                    '.chat-global-rail',
+                    '.chat-page__history',
+                    '.chat-page__main',
+                    '.chat-page__content',
+                    '.chat-history',
+                ].join(',')),
+            ].forEach((element) => {
+                element.scrollTop = 0;
+                element.scrollLeft = 0;
+            });
+        };
+
+        window.history.scrollRestoration = 'manual';
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+        resetScrollPositions();
+
+        const frameId = window.requestAnimationFrame(resetScrollPositions);
+        const timerId = window.setTimeout(resetScrollPositions, 120);
+
+        return () => {
+            window.cancelAnimationFrame(frameId);
+            window.clearTimeout(timerId);
+            document.body.style.overflow = previousBodyOverflow;
+            document.documentElement.style.overflow = previousHtmlOverflow;
+            window.history.scrollRestoration = previousScrollRestoration;
+        };
+    }, []);
 
     useEffect(() => {
         if (token) axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -218,7 +265,7 @@ const ChatPage = () => {
             const res = await axios.post(`${API_BASE_URL}/api/chat/send`, formData, {
                 signal: controller.signal,
             });
-            const { session: newSessionData, ai_response: aiResponseData } = res.data;
+            const { session: newSessionData } = res.data;
             const elapsedMs = Math.max(0, Math.round(performance.now() - requestStartedAt));
     
             setChats(prev => {
@@ -247,35 +294,6 @@ const ChatPage = () => {
             }
             refreshModelConfig();
     
-            // **最终修复：采用最稳健的逻辑处理AI响应**
-            if (aiResponseData && aiResponseData.visualizations) {
-                const viz = aiResponseData.visualizations;
-                let hasVizUpdate = false;
-                
-                let nextDimension = 2;
-                let nextMatrix2d = null;
-                let nextMatrix3d = null;
-
-                if (viz['2d']?.matrix) {
-                    nextMatrix2d = viz['2d'].matrix;
-                    nextDimension = 2; // 优先展示2D视图
-                    hasVizUpdate = true;
-                }
-                if (viz['3d']?.matrix) {
-                    nextMatrix3d = viz['3d'].matrix;
-                    if (!hasVizUpdate) { // 只有在没有2D数据时，才将默认展示维度设为3D
-                        nextDimension = 3;
-                    }
-                    hasVizUpdate = true;
-                }
-                
-                if (hasVizUpdate) {
-                    const matrixStr = nextDimension === 2 ? nextMatrix2d.flat().join(',') : nextMatrix3d.flat().join(',');
-                    // 不再展开侧边栏，而是可以通过消息中的链接跳转到独立页面
-                    // (此处可以选择自动跳转或让用户自己点链接)
-                }
-            }
-    
         } catch (error) {
             if (axios.isCancel(error) || error?.code === 'ERR_CANCELED') {
                 if (!request.cancelHandled) {
@@ -290,7 +308,7 @@ const ChatPage = () => {
             }
             console.error("Error sending message:", error);
             const errorMessage = error?.response?.data?.error || '发送失败，请稍后重试。';
-            window.alert(errorMessage);
+            showToast(errorMessage, 'error');
             refreshModelConfig();
         } finally {
             if (activeRequestRef.current?.requestId === requestId) {
@@ -316,6 +334,7 @@ const ChatPage = () => {
         activeRequestRef.current = null;
         sendingRef.current = false;
         setIsSending(false);
+        showToast('已取消本次生成，草稿已恢复', 'info');
     };
 
     const handleOpenVisualizer = () => {
@@ -330,8 +349,10 @@ const ChatPage = () => {
     const chatModels = modelConfig?.chat_models || [];
     
     return (
-        <div className="flex h-screen w-screen fixed top-0 left-0 bg-[#FFFFFF] text-[#212529]">
-            <aside className={`flex flex-col h-full bg-[#F8F9FA] border-r border-[#DEE2E6] shrink-0 transition-all duration-300 ${isHistoryCollapsed ? 'w-[72px] min-w-[72px]' : 'w-[280px]'}`}>
+        <div ref={chatPageRef} className={`chat-page ${isHistoryCollapsed ? 'is-history-collapsed' : ''}`}>
+            <ChatNavigationRail />
+
+            <aside className="chat-page__history">
                 <ChatHistorySidebar 
                     chats={chats} 
                     activeChatId={sessionId} 
@@ -342,34 +363,34 @@ const ChatPage = () => {
                 />
             </aside>
 
-            <main className="flex-1 h-full flex flex-col overflow-hidden">
-                <div className="w-full max-w-[1000px] h-full mx-auto flex flex-col px-4 box-border">
-                    <div className="flex justify-between items-center py-4 border-b border-[#DEE2E6] shrink-0">
-                        <div className="min-w-0 flex-1">
-                            <h2 className="m-0 text-lg font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
+            <main className="chat-page__main">
+                <div className="chat-page__content">
+                    <header className="chat-page__header">
+                        <IconButton
+                            className="chat-page__mobile-history-button"
+                            icon={PanelLeft}
+                            label="打开聊天记录"
+                            onClick={() => setIsMobileHistoryOpen(true)}
+                        />
+                        <div className="chat-page__heading">
+                            <h1>
                                 {activeChat?.title || (String(sessionId || '').startsWith('temp-') ? '新会话...' : '开始新对话')}
-                            </h2>
+                            </h1>
                             {premiumUsage && (
-                                <p className="m-0 mt-1 text-xs text-[#868E96]">
+                                <p>
                                     高级模型额度：{premiumUsage.remaining}/{premiumUsage.limit}
                                 </p>
                             )}
                         </div>
-                        <div className="flex gap-2 shrink-0">
-                            <button 
-                                className="flex items-center gap-2 px-4 py-2 border border-[#DEE2E6] rounded-md text-[#868E96] bg-transparent cursor-pointer transition-colors hover:bg-[#F1F3F5] hover:text-[#000000] hover:border-[#000000]"
-                                onClick={handleOpenVisualizer}
-                                title="打开独立的可视化引擎"
-                            >
-                                <VisIcon />
-                                打开可视化工具
-                            </button>
-                        </div>
-                    </div>
+                        <Button icon={Blocks} onClick={handleOpenVisualizer} className="chat-page__visualizer-button">
+                            可视化工具
+                        </Button>
+                    </header>
 
                     {chatModels.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-2 py-3 border-b border-[#E9ECEF] shrink-0">
-                            <span className="text-xs text-[#868E96] mr-1">模型</span>
+                        <div className="chat-models" aria-label="选择对话模型">
+                            <span className="chat-models__label">模型</span>
+                            <div className="chat-models__scroll">
                             {chatModels.map(model => {
                                 const disabled = isPremiumModelExhausted(model, modelConfig);
                                 const selected = selectedModelId === model.id;
@@ -379,40 +400,33 @@ const ChatPage = () => {
                                         type="button"
                                         disabled={disabled || isSending}
                                         onClick={() => setSelectedModelId(model.id)}
-                                        className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
-                                            selected
-                                                ? 'bg-black text-white border-black'
-                                                : disabled
-                                                    ? 'bg-[#F1F3F5] text-[#ADB5BD] border-[#DEE2E6] cursor-not-allowed'
-                                                    : 'bg-white text-[#495057] border-[#DEE2E6] hover:border-black hover:text-black'
-                                        }`}
+                                        className={selected ? 'is-selected' : ''}
                                         title={disabled ? '今日高级模型额度已用完，明天自动恢复' : model.model}
                                     >
                                         {model.label || model.id}
                                         {model.daily_limited && (
-                                            <span className={`ml-1 ${selected ? 'text-white/75' : disabled ? 'text-[#ADB5BD]' : 'text-[#868E96]'}`}>
-                                                限额
-                                            </span>
+                                            <span>限额</span>
                                         )}
                                     </button>
                                 );
                             })}
+                            </div>
                         </div>
                     )}
 
                     {sessionId === 'new' && activeMessages.length === 0 && !isLoading && !isSending ? (
-                        <div className="flex-1 flex flex-col justify-center items-center text-center pb-[20vh]">
-                            <div className="w-16 h-16 rounded-full bg-[#F1F3F5] flex items-center justify-center mb-6 text-[#212529]">
-                                <AiIcon />
+                        <div className="chat-empty">
+                            <div className="chat-empty__icon">
+                                <Bot size={26} aria-hidden="true" />
                             </div>
-                            <h1 className="text-3xl font-bold mb-4">AI 助教</h1>
-                            <p className="text-[#868E96] text-lg">你好, {user?.displayName || user?.name}！有什么线性代数的问题吗？</p>
+                            <h2>从一个问题开始</h2>
+                            <p>你好，{user?.displayName || user?.name}。我可以解释概念、检索教材，也可以陪你逐步解题。</p>
                         </div>
                     ) : (
                         <MessageList messages={activeMessages} isLoading={isSending} user={user} />
                     )}
 
-                    <div className="shrink-0 w-full bg-[#FFFFFF] pb-6 pt-2">
+                    <div className="chat-page__composer">
                         <MessageInput 
                             input={input} 
                             setInput={setInput} 
@@ -426,17 +440,40 @@ const ChatPage = () => {
                 </div>
             </main>
 
-            {/* 悬浮计算器 */}
+            {isMobileHistoryOpen && (
+                <div className="chat-history-drawer__backdrop" onMouseDown={() => setIsMobileHistoryOpen(false)}>
+                    <aside className="chat-history-drawer" onMouseDown={(event) => event.stopPropagation()}>
+                        <div className="chat-history-drawer__top">
+                            <strong>聊天记录</strong>
+                            <IconButton icon={X} label="关闭聊天记录" onClick={() => setIsMobileHistoryOpen(false)} />
+                        </div>
+                        <ChatHistorySidebar
+                            chats={chats}
+                            activeChatId={sessionId}
+                            onNewChat={() => {
+                                setIsMobileHistoryOpen(false);
+                                navigate('/chat/new');
+                            }}
+                            onSelectChat={(id) => {
+                                setIsMobileHistoryOpen(false);
+                                navigate(`/chat/${id}`);
+                            }}
+                            mobile
+                        />
+                    </aside>
+                </div>
+            )}
+
             <MathCalculator isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} />
-            
-            {/* 悬浮计算器唤出按钮 (FAB) */}
+
             {!isCalculatorOpen && (
-                <button 
+                <button
                     onClick={() => setIsCalculatorOpen(true)}
-                    className="fixed bottom-8 right-8 w-14 h-14 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-all flex items-center justify-center z-40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+                    className="chat-calculator-button"
                     title="打开矩阵计算器"
+                    aria-label="打开矩阵计算器"
                 >
-                    <Calculator size={24} />
+                    <Calculator size={21} />
                 </button>
             )}
         </div>

@@ -5,16 +5,15 @@
 //   - 已加入：展示班级名称、邀请码、教师、当前教学周、同学人数、课件数量
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
-import { ArrowLeft, Users, Clock, BookOpen, GraduationCap, Copy, Check, RefreshCw } from 'lucide-react';
+import { Users, Clock, BookOpen, GraduationCap, Copy, Check, RefreshCw } from 'lucide-react';
+import PageHeader from '../components/ui/PageHeader';
 
 const API_BASE_URL = '';
 
 const StudentClassPage = () => {
     const { token } = useAuth();
-    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [joined, setJoined] = useState(false);
     const [cls, setCls] = useState(null);
@@ -76,29 +75,21 @@ const StudentClassPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#F1F3F5] p-6 md:p-10">
-            <div className="max-w-[900px] mx-auto">
-                <button
-                    onClick={() => navigate('/workspace')}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#495057] bg-white border border-[#DEE2E6] rounded-md hover:border-[#212529] hover:text-[#212529] transition-colors mb-4"
-                >
-                    <ArrowLeft size={16} /> 返回工作区
-                </button>
-
-                <header className="mb-6 flex items-end justify-between flex-wrap gap-3">
-                    <div>
-                        <h1 className="text-2xl font-semibold text-[#212529] m-0">我的班级</h1>
-                        <p className="text-sm text-[#868E96] mt-1 mb-0">
-                            {joined ? '查看当前所在班级的信息与进度。' : '输入老师提供的 6 位邀请码加入你的班级。'}
-                        </p>
-                    </div>
+        <div className="page-surface">
+            <div className="page-container page-container--narrow">
+                <PageHeader
+                    eyebrow="课程组织"
+                    title="我的班级"
+                    description={joined ? '查看当前所在班级的信息与教学进度。' : '输入老师提供的 6 位邀请码加入班级。'}
+                    actions={(
                     <button
                         onClick={fetchClass}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#495057] bg-white border border-[#DEE2E6] rounded-md hover:border-[#212529] hover:text-[#212529] transition-colors"
                     >
                         <RefreshCw size={14} /> 刷新
                     </button>
-                </header>
+                    )}
+                />
 
                 {error && (
                     <div className="mb-4 text-sm text-[#dc3545] bg-[#FFF5F5] border border-[#FFE3E3] rounded-md px-3 py-2">
@@ -150,7 +141,7 @@ const StudentClassPage = () => {
                         <p className="text-sm text-[#868E96] m-0 mb-5">
                             向你的老师索要 6 位班级邀请码（字母与数字组合），在下方输入后即可加入。
                         </p>
-                        <form onSubmit={handleJoin} className="flex items-center gap-2">
+                        <form onSubmit={handleJoin} className="flex flex-col sm:flex-row sm:items-center gap-2">
                             <input
                                 type="text"
                                 value={inviteCode}

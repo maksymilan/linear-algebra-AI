@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import {
-    ArrowLeft, Users, Clock, BookOpen, MessageSquare, FileCheck, CheckCircle2,
+    Users, Clock, BookOpen, MessageSquare, FileCheck, CheckCircle2,
     Plus, Copy, Check, RefreshCw, X, Upload, FileText, Loader2
 } from 'lucide-react';
+import PageHeader from '../components/ui/PageHeader';
 
 const API_BASE_URL = '';
 
@@ -18,7 +18,6 @@ const formatDate = (iso) => {
 
 const ClassManagementPage = () => {
     const { token } = useAuth();
-    const navigate = useNavigate();
 
     const [classes, setClasses] = useState([]);
     const [loadingList, setLoadingList] = useState(false);
@@ -177,23 +176,13 @@ const ClassManagementPage = () => {
     const selectedClassMeta = classes.find((c) => c.id === selectedClassId);
 
     return (
-        <div className="min-h-screen bg-[#F1F3F5] p-6 md:p-10">
-            <div className="max-w-[1280px] mx-auto">
-                {/* 返回按钮 */}
-                <button
-                    onClick={() => navigate('/workspace')}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#495057] bg-white border border-[#DEE2E6] rounded-md hover:border-[#212529] hover:text-[#212529] transition-colors mb-4"
-                >
-                    <ArrowLeft size={16} /> 返回工作区
-                </button>
-
-                <header className="flex items-end justify-between mb-6 flex-wrap gap-3">
-                    <div>
-                        <h1 className="text-2xl font-semibold text-[#212529] m-0">班级管理</h1>
-                        <p className="text-sm text-[#868E96] mt-1 mb-0">
-                            查看你管理的班级、邀请码，以及每位学生的学习情况。
-                        </p>
-                    </div>
+        <div className="page-surface">
+            <div className="page-container">
+                <PageHeader
+                    eyebrow="教学组织"
+                    title="班级管理"
+                    description="查看班级邀请码、教学进度、课程资料与学生学习情况。"
+                    actions={(
                     <div className="flex items-center gap-2">
                         <button
                             onClick={fetchClasses}
@@ -208,7 +197,8 @@ const ClassManagementPage = () => {
                             <Plus size={14} /> 新建班级
                         </button>
                     </div>
-                </header>
+                    )}
+                />
 
                 {err && (
                     <div className="mb-4 text-sm text-[#dc3545] bg-[#FFF5F5] border border-[#FFE3E3] rounded-md px-3 py-2">
@@ -415,7 +405,8 @@ const ClassManagementPage = () => {
                                             该班级还没有学生加入。将邀请码发给学生让他们加入班级吧。
                                         </div>
                                     ) : (
-                                        <div className="overflow-x-auto border border-[#E9ECEF] rounded-lg">
+                                        <>
+                                        <div className="hidden md:block overflow-x-auto border border-[#E9ECEF] rounded-lg">
                                             <table className="w-full text-sm">
                                                 <thead className="bg-[#F8F9FA] text-[#495057]">
                                                     <tr>
@@ -470,6 +461,45 @@ const ClassManagementPage = () => {
                                                 </tbody>
                                             </table>
                                         </div>
+                                        <div className="grid gap-2 md:hidden">
+                                            {detail.students.map((student) => {
+                                                const total = detail?.class?.total_assignments ?? 0;
+                                                const rate = total > 0 ? Math.round((student.submit_count / total) * 100) : 0;
+                                                return (
+                                                    <article key={student.id} className="border border-[#E9ECEF] rounded-lg p-3 bg-white">
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div>
+                                                                <div className="font-medium text-sm text-[#212529]">
+                                                                    {student.display_name || student.username}
+                                                                </div>
+                                                                {student.display_name && (
+                                                                    <div className="text-xs text-[#868E96]">@{student.username}</div>
+                                                                )}
+                                                            </div>
+                                                            <ProgressPill percent={rate} />
+                                                        </div>
+                                                        <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+                                                            <div className="bg-[#F8F9FA] rounded-md p-2">
+                                                                <div className="text-xs font-semibold">{student.submit_count}/{total}</div>
+                                                                <div className="text-[10px] text-[#868E96] mt-0.5">已提交</div>
+                                                            </div>
+                                                            <div className="bg-[#F8F9FA] rounded-md p-2">
+                                                                <div className="text-xs font-semibold">{student.graded_count}</div>
+                                                                <div className="text-[10px] text-[#868E96] mt-0.5">已批改</div>
+                                                            </div>
+                                                            <div className="bg-[#F8F9FA] rounded-md p-2">
+                                                                <div className="text-xs font-semibold">{student.chat_count}</div>
+                                                                <div className="text-[10px] text-[#868E96] mt-0.5">AI 对话</div>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-[10px] text-[#868E96] mt-2 mb-0">
+                                                            最近活跃：{formatDate(student.last_active)}
+                                                        </p>
+                                                    </article>
+                                                );
+                                            })}
+                                        </div>
+                                        </>
                                     )}
                                 </div>
                             </>

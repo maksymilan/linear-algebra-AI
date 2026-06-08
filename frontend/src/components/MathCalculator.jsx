@@ -51,7 +51,7 @@ const MathCalculator = ({ isOpen, onClose }) => {
         default:
           break;
       }
-    } catch (err) {
+    } catch {
       setError("计算错误，请检查矩阵是否可逆或格式正确");
       setResult(null);
     }

@@ -1,36 +1,32 @@
 import React, { useState } from 'react';
-import EyeOpenIcon from '../assets/icons/EyeOpenIcon';
-import EyeClosedIcon from '../assets/icons/EyeClosedIcon';
-import './PasswordInput.css'; 
+import { Eye, EyeOff } from 'lucide-react';
+import IconButton from './ui/IconButton';
+import './PasswordInput.css';
 
-// **关键修复：添加了 name 属性，并将其传递给 input 元素**
 const PasswordInput = ({ label, name, value, onChange, placeholder, required = false }) => {
   const [isVisible, setIsVisible] = useState(false);
 
-  const toggleVisibility = () => {
-    setIsVisible(!isVisible);
-  };
-
   return (
-    <div className="password-input-container">
-      <label className="password-input-label">{label}</label>
+    <div className="auth-field password-input-container">
+      <label htmlFor={name}>{label}</label>
       <div className="password-input-wrapper">
         <input
+          id={name}
           type={isVisible ? 'text' : 'password'}
-          name={name} // 添加 name 属性
+          name={name}
           value={value}
           onChange={onChange}
           placeholder={placeholder}
           required={required}
-          className="password-input-field" 
+          className="password-input-field"
         />
-        {/* <button
-          type="button"
-          onClick={toggleVisibility}
-          className="password-visibility-button" 
-        >
-          {isVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
-        </button> */}
+        <IconButton
+          icon={isVisible ? EyeOff : Eye}
+          label={isVisible ? '隐藏密码' : '显示密码'}
+          size="sm"
+          className="password-visibility-button"
+          onClick={() => setIsVisible((current) => !current)}
+        />
       </div>
     </div>
   );

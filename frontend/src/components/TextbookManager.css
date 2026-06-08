@@ -1,0 +1,247 @@
+.textbook-manager {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.textbook-upload {
+  padding: 1.25rem;
+}
+
+.textbook-section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.textbook-section-icon,
+.textbook-task__file-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+}
+
+.textbook-section-icon {
+  width: 38px;
+  height: 38px;
+}
+
+.textbook-section-heading h2,
+.textbook-tasks__header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.textbook-section-heading p,
+.textbook-tasks__header p,
+.textbook-upload__footer p {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.textbook-upload__form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.textbook-upload__form label > span {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #52525b;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.textbook-file-field {
+  width: 100%;
+  height: 38px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  background: #ffffff;
+  color: #52525b;
+  font-size: 0.76rem;
+}
+
+.textbook-file-field::file-selector-button {
+  height: 100%;
+  margin-right: 0.65rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  background: #f4f4f5;
+  color: #3f3f46;
+  font-weight: 600;
+}
+
+.textbook-upload__footer {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.2rem;
+}
+
+.textbook-upload__footer p {
+  max-width: 620px;
+}
+
+.textbook-tasks {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.textbook-tasks__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.textbook-task-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.textbook-task {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.3fr) minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  min-height: 78px;
+  padding: 0.85rem 1rem;
+}
+
+.textbook-task__file {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.textbook-task__file-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.textbook-task__file > div:last-child {
+  min-width: 0;
+}
+
+.textbook-task h3 {
+  overflow: hidden;
+  margin: 0;
+  font-size: 0.83rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.textbook-task p {
+  margin: 0.22rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.69rem;
+}
+
+.textbook-task__status {
+  min-width: 0;
+}
+
+.textbook-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 24px;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.textbook-status--success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.textbook-status--warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.textbook-status--danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.textbook-status--neutral {
+  background: #f4f4f5;
+  color: #71717a;
+}
+
+.textbook-progress {
+  height: 4px;
+  margin-top: 0.55rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e4e4e7;
+}
+
+.textbook-progress > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-warning);
+  transition: width 300ms ease;
+}
+
+.textbook-progress > div.is-indeterminate {
+  position: relative;
+  width: 42%;
+  animation: textbook-progress-indeterminate 1.6s ease-in-out infinite;
+}
+
+.textbook-task__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+@media (max-width: 760px) {
+  .textbook-upload__form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .textbook-upload__footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .textbook-upload__footer .ui-button {
+    width: 100%;
+  }
+
+  .textbook-task {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.75rem;
+  }
+
+  .textbook-task__file {
+    grid-column: 1;
+  }
+
+  .textbook-task__status {
+    grid-column: 1 / -1;
+  }
+
+  .textbook-task__actions {
+    grid-column: 2;
+    grid-row: 1;
+    justify-content: flex-end;
+  }
+}

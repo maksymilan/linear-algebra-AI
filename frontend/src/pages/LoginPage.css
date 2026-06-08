@@ -1,324 +1,314 @@
-/* src/pages/LoginPage.css */
-
-/* 定义黑白主题的颜色变量 */
-:root {
-  --color-dark-bg: #1a1a1a;
-  --color-light-bg: #ffffff;
-  --color-dark-text: #212529;
-  --color-light-text: #f8f9fa;
-  --color-secondary-text: #6c757d;
-  --color-border: #dee2e6;
-  --color-accent: #000000;
-  --color-accent-hover: #333333;
-}
-
 .login-page-container {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background-color: var(--color-light-bg);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  display: grid;
+  grid-template-columns: minmax(380px, 0.9fr) minmax(480px, 1.1fr);
+  width: 100%;
+  min-height: 100vh;
+  background: #ffffff;
 }
 
-/* --- 左侧的品牌宣传面板 (暗色主题) --- */
 .login-promo-panel {
-  width: 55%;
-  background-color: var(--color-dark-bg);
-  color: var(--color-light-text);
+  position: relative;
   display: flex;
+  min-height: 100vh;
   flex-direction: column;
-  justify-content: center;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: clamp(2rem, 5vw, 4.5rem);
+  background: #18181b;
+  color: #ffffff;
+}
+
+.login-promo-panel::after {
+  position: absolute;
+  right: -12%;
+  bottom: -8%;
+  width: 58%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  content: "";
+  transform: rotate(12deg);
+}
+
+.login-brand-lockup {
+  display: flex;
   align-items: center;
-  padding: 3rem;
-  text-align: center;
-  animation: slideInFromLeft 0.8s ease-out;
-}
-
-@keyframes slideInFromLeft {
-  from {
-    transform: translateX(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-.login-promo-panel img {
-  width: 90px;
-  height: 90px;
-  margin-bottom: 2rem;
-  /* 为白色logo在暗色背景下添加柔和光晕 */
-  filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.1));
-}
-
-.login-promo-panel h2 {
-  font-size: 2.5rem;
+  gap: 0.65rem;
+  font-size: 0.86rem;
   font-weight: 700;
-  margin: 0 0 1rem 0;
 }
 
-.login-promo-panel p {
-  font-size: 1.2rem;
-  opacity: 0.8;
-  max-width: 450px;
+.login-brand-lockup img {
+  width: 31px;
+  height: 31px;
+  filter: invert(1);
+}
+
+.login-promo-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 34rem;
+}
+
+.login-kicker {
+  margin: 0 0 1rem !important;
+  color: #a1a1aa !important;
+  font-size: 0.7rem !important;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.login-promo-copy h2 {
+  margin: 0;
+  font-size: clamp(2.25rem, 5vw, 4.6rem);
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.login-promo-copy > p:last-child {
+  max-width: 30rem;
+  margin: 1.35rem 0 0;
+  color: #d4d4d8;
+  font-size: 0.95rem;
+  line-height: 1.8;
+}
+
+.login-promo-meta {
+  position: relative;
+  z-index: 1;
+  color: #71717a;
+  font-size: 0.72rem;
+}
+
+.login-form-wrapper {
+  display: flex;
+  min-width: 0;
+  max-height: 100vh;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: clamp(2rem, 6vw, 5.5rem);
+}
+
+.auth-form-panel {
+  width: min(420px, 100%);
+  margin: auto 0;
+  padding: 1rem 0;
+}
+
+.auth-form-panel h1 {
+  margin: 0;
+  color: #18181b;
+  font-size: 1.65rem;
+  line-height: 1.25;
+}
+
+.auth-form-panel .form-subtitle {
+  margin: 0.45rem 0 1.65rem;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
   line-height: 1.6;
 }
 
-
-/* --- 右侧的表单区域 (亮色主题) --- */
-.login-form-wrapper {
-  width: 45%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 3rem;
-  background-color: var(--color-light-bg);
-  animation: fadeIn 1s ease-in-out;
+.auth-field {
+  margin-bottom: 1rem;
+  text-align: left;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.auth-field label,
+.form-group.role-selection > label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #52525b;
+  font-size: 0.76rem;
+  font-weight: 650;
 }
 
-.form-container {
+.auth-field input {
   width: 100%;
-  max-width: 400px;
-}
-
-.form-container h1 {
-  font-size: 2rem;
-  font-weight: 600;
-  margin-bottom: 0.75rem;
-  color: var(--color-dark-text);
-}
-
-.form-container .form-subtitle {
-  color: var(--color-secondary-text);
-  margin-bottom: 2.5rem;
-  font-size: 1rem;
-}
-
-/* 针对 FormInput 和 PasswordInput 内部 input 元素的样式 */
-.form-container input[type="text"],
-.form-container input[type="email"],
-.form-container input[type="password"] {
-    border: 1px solid var(--color-border);
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.form-container input[type="text"]:focus,
-.form-container input[type="email"]:focus,
-.form-container input[type="password"]:focus {
-    outline: none;
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
-}
-
-
-.form-container .main-button {
-  width: 100%;
-  padding: 0.9rem 1.5rem;
-  border: none;
-  border-radius: 8px;
-  background-color: var(--color-accent);
-  color: var(--color-light-text);
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s, transform 0.2s;
-  margin-top: 1.5rem;
-}
-
-.form-container .main-button:hover:not(:disabled) {
-  background-color: var(--color-accent-hover);
-  transform: translateY(-2px);
-}
-
-.form-container .main-button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
-
-.form-container .secondary-button {
-  padding: 0.8rem 1rem;
+  height: 42px;
+  padding: 0 0.75rem;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--border-radius-md);
   background: #ffffff;
-  color: var(--color-dark-text);
-  font-size: 0.95rem;
-  font-weight: 500;
+  color: #18181b;
+  font-size: 0.84rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.auth-field input:focus {
+  outline: 0;
+  border-color: #52525b;
+  box-shadow: 0 0 0 2px rgba(24, 24, 27, 0.08);
+}
+
+.auth-form-panel .main-button,
+.auth-form-panel .secondary-button {
+  min-height: 42px;
+  border-radius: var(--border-radius-md);
   cursor: pointer;
-  transition: border-color 0.2s, background-color 0.2s;
+  font-size: 0.82rem;
+  font-weight: 650;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
-.form-container .secondary-button:hover:not(:disabled) {
-  border-color: var(--color-accent);
-  background-color: #f8f9fa;
+.auth-form-panel .main-button {
+  width: 100%;
+  margin-top: 0.4rem;
+  border: 1px solid #18181b;
+  background: #18181b;
+  color: #ffffff;
 }
 
-.form-container .secondary-button:disabled {
-  color: #999999;
-  background-color: #f1f3f5;
+.auth-form-panel .main-button:hover:not(:disabled) {
+  background: #000000;
+}
+
+.auth-form-panel .secondary-button {
+  padding: 0 0.8rem;
+  border: 1px solid var(--color-border);
+  background: #ffffff;
+  color: #3f3f46;
+}
+
+.auth-form-panel button:disabled {
+  opacity: 0.48;
   cursor: not-allowed;
 }
 
-.form-container .verification-row {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-end;
+.verification-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 116px;
+  align-items: end;
+  gap: 0.65rem;
 }
 
-.form-container .verification-input {
-  flex: 1;
-  min-width: 0;
+.verification-button {
+  margin-bottom: 1rem;
+  white-space: nowrap;
 }
 
-.form-container .verification-button {
-  width: 116px;
-  flex-shrink: 0;
+.error-message,
+.info-message {
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid;
+  border-radius: var(--border-radius-md);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.error-message {
+  border-color: #fecaca;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.info-message {
+  border-color: #bbf7d0;
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.toggle-link {
+  margin-top: 1.35rem;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.toggle-link button {
+  border: 0;
+  background: transparent;
+  color: #18181b;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.toggle-link a {
+  color: #52525b !important;
+  text-decoration-color: #a1a1aa !important;
+}
+
+.form-group.role-selection {
   margin-bottom: 1rem;
 }
 
-.form-container .error-message {
-  color: #d9534f; /* 保持红色以示警示 */
-  margin-top: 1rem;
-  text-align: center;
-  font-weight: 500;
-}
-
-.form-container .info-message {
-  color: #2f9e44;
-  margin: -0.25rem 0 0.75rem;
-  text-align: center;
-  font-weight: 500;
-}
-
-.form-container .toggle-link {
-  margin-top: 2rem;
-  text-align: center;
-  color: var(--color-secondary-text);
-}
-
-.form-container .toggle-link button {
-  background: none;
-  border: none;
-  color: var(--color-accent);
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0 4px;
-  font-size: inherit;
-}
-
-.form-container .toggle-link button:hover {
-  text-decoration: underline;
-}
-
-/* --- 响应式设计：在小屏幕上堆叠 --- */
-@media (max-width: 992px) {
-  .login-promo-panel {
-    display: none; /* 在平板尺寸下隐藏宣传面板 */
-  }
-
-  .login-form-wrapper {
-    width: 100%;
-  }
-
-  .form-container .verification-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .form-container .verification-button {
-    width: 100%;
-    margin-bottom: 1rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .login-page-container {
-    flex-direction: column;
-  }
-
-  .login-form-wrapper {
-    width: 100%;
-    height: 100%;
-    padding: 2rem;
-  }
-}
-/* --- 新增：角色选择器样式 (匹配示例代码) --- */
-.form-group.role-selection {
-    text-align: left;
-    margin-bottom: 2rem;
-}
-
-.form-group.role-selection > label {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    display: block;
-    color: var(--color-dark-text);
-}
-
 .role-options {
-    display: flex;
-    gap: 1rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
 }
 
 .role-options label {
-    flex: 1;
-    position: relative;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    padding: 1rem;
-    cursor: pointer;
-    transition: all 0.2s ease-in-out;
-    background-color: #f8f9fa;
+  position: relative;
+  min-height: 42px;
+  padding: 0 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  background: #ffffff;
+  cursor: pointer;
 }
 
-.role-options label:hover {
-    border-color: var(--color-accent);
-    background-color: #fff;
-}
-
-.role-options input[type="radio"] {
-    /* 完全隐藏原生单选按钮 */
-    position: absolute;
-    opacity: 0;
+.role-options input {
+  position: absolute;
+  opacity: 0;
 }
 
 .role-options span {
-    font-size: 1rem;
-    font-weight: 500;
-    color: var(--color-secondary-text);
-    transition: color 0.2s ease-in-out;
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: space-between;
+  color: #71717a;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
-/* **选中时的样式** */
-.role-options input[type="radio"]:checked + span {
-    color: var(--color-dark-text);
+.role-options input:checked + span {
+  color: #18181b;
 }
 
-.role-options label {
-    /* 使用伪元素创建选中指示器 */
-    position: relative;
+.role-options input:checked + span::after {
+  color: #18181b;
+  content: "✓";
+  font-weight: 800;
 }
 
-.role-options input[type="radio"]:checked ~ span::after {
-    content: '✔';
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--color-accent);
-    font-weight: bold;
+.role-options label:has(input:checked) {
+  border-color: #18181b;
+  box-shadow: inset 0 0 0 1px #18181b;
 }
 
-.role-options input[type="radio"]:checked ~ label {
-    border-color: var(--color-accent);
-    background-color: #fff;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+@media (max-width: 900px) {
+  .login-page-container {
+    grid-template-columns: 1fr;
+  }
+
+  .login-promo-panel {
+    display: none;
+  }
+
+  .login-form-wrapper {
+    max-height: none;
+    min-height: 100vh;
+    padding: 2.5rem 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-form-wrapper {
+    align-items: flex-start;
+    padding: 1.5rem 1rem;
+  }
+
+  .verification-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .verification-button {
+    width: 100%;
+    margin-bottom: 1rem;
+  }
 }

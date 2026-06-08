@@ -20,6 +20,7 @@ import QuestionBankPage from '../pages/QuestionBankPage';
 import ClassManagementPage from '../pages/ClassManagementPage';
 import StudentClassPage from '../pages/StudentClassPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
+import AppShell from '../components/layout/AppShell';
 
 
 export const AppRoutes = () => {
@@ -29,30 +30,24 @@ export const AppRoutes = () => {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/" element={<HomePage />} />
       
-      {/* 核心页面 */}
-      <Route path="/workspace" element={<ProtectedRoute><WorkspacePage /></ProtectedRoute>} />
+      {/* 普通业务页面共用应用壳 */}
+      <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+        <Route path="/workspace" element={<WorkspacePage />} />
+        <Route path="/grading" element={<GradingPage />} />
+        <Route path="/assignments" element={<AssignmentListPage />} />
+        <Route path="/assignments/new" element={<CreateAssignmentPage />} />
+        <Route path="/assignments/:id" element={<SubmitAssignmentPage />} />
+        <Route path="/assignments/:id/submissions" element={<ViewSubmissionsPage />} />
+        <Route path="/textbooks" element={<TextbookManagerPage />} />
+        <Route path="/question-bank" element={<QuestionBankPage />} />
+        <Route path="/teacher/classes" element={<ClassManagementPage />} />
+        <Route path="/student/class" element={<StudentClassPage />} />
+      </Route>
+
+      {/* 聊天与可视化使用专用布局 */}
       <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
       <Route path="/chat/:sessionId" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
-      <Route path="/grading" element={<ProtectedRoute><GradingPage /></ProtectedRoute>} />
       <Route path="/visualizer" element={<ProtectedRoute><VisualizerPage /></ProtectedRoute>} />
-
-      {/* 新增的作业系统页面 */}
-      <Route path="/assignments" element={<ProtectedRoute><AssignmentListPage /></ProtectedRoute>} />
-      <Route path="/assignments/new" element={<ProtectedRoute><CreateAssignmentPage /></ProtectedRoute>} />
-      <Route path="/assignments/:id" element={<ProtectedRoute><SubmitAssignmentPage /></ProtectedRoute>} />
-      <Route path="/assignments/:id/submissions" element={<ProtectedRoute><ViewSubmissionsPage /></ProtectedRoute>} />
-      
-      {/* 教材管理页面 */}
-      <Route path="/textbooks" element={<ProtectedRoute><TextbookManagerPage /></ProtectedRoute>} />
-
-      {/* 题库（搜索 + 收藏） */}
-      <Route path="/question-bank" element={<ProtectedRoute><QuestionBankPage /></ProtectedRoute>} />
-
-      {/* 教师 - 班级管理 */}
-      <Route path="/teacher/classes" element={<ProtectedRoute><ClassManagementPage /></ProtectedRoute>} />
-
-      {/* 学生 - 我的班级（加入/查看） */}
-      <Route path="/student/class" element={<ProtectedRoute><StudentClassPage /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/workspace" />} />
     </Routes>

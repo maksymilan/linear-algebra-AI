@@ -3,6 +3,7 @@ import axios from 'axios';
 import AiResponse from './AiResponse';
 import { ThumbsUp, ThumbsDown, FileText, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import autoWrapMath from '../utils/autoWrapMath';
+import { getAvatarInitial } from '../utils/avatarInitial';
 
 const Avatar = ({ sender, user }) => {
     const aiAvatar = (
@@ -15,7 +16,9 @@ const Avatar = ({ sender, user }) => {
         <img src={user.avatarUrl} alt={user.displayName || user.name} className="w-8 h-8 rounded-full shrink-0 shadow-sm object-cover" />
     ) : (
         <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 shrink-0 shadow-sm">
-            <span className="font-bold text-xs">{(user?.displayName || user?.name || 'U').charAt(0).toUpperCase()}</span>
+            <span className="font-bold text-xs">
+                {getAvatarInitial(user?.displayName || user?.name || user?.username, user?.role)}
+            </span>
         </div>
     );
     

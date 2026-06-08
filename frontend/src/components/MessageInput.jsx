@@ -32,7 +32,7 @@ const MessageInput = ({ input, setInput, files, setFiles, onSend, onCancel, isLo
   };
 
   return (
-    <div className="bg-white p-4 flex flex-col gap-2 relative">
+    <div className="chat-composer">
       <input
         type="file"
         multiple
@@ -41,12 +41,12 @@ const MessageInput = ({ input, setInput, files, setFiles, onSend, onCancel, isLo
         onChange={handleFileChange}
       />
       <FilePreview files={files} onRemove={handleRemoveFile} />
-      <form className="flex items-end gap-3 max-w-4xl mx-auto w-full bg-white border border-[#DEE2E6] rounded-2xl p-2 shadow-sm focus-within:border-black transition-colors" onSubmit={handleSubmit}>
-        <button type="button" className="p-2.5 text-[#868E96] hover:text-black transition-colors rounded-xl flex-shrink-0" onClick={() => fileInputRef.current?.click()} disabled={isLoading} title="上传文件">
+      <form className="chat-composer__form" onSubmit={handleSubmit}>
+        <button type="button" className="chat-composer__icon" onClick={() => fileInputRef.current?.click()} disabled={isLoading} title="上传文件" aria-label="上传文件">
           <Paperclip size={20} />
         </button>
         <textarea
-          className="flex-1 max-h-48 min-h-[44px] bg-transparent text-[#212529] placeholder-[#868E96] resize-none outline-none py-3 text-[15px] leading-relaxed"
+          className="chat-composer__textarea"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="给助教发送消息..."
@@ -62,21 +62,20 @@ const MessageInput = ({ input, setInput, files, setFiles, onSend, onCancel, isLo
         {isLoading ? (
           <button
             type="button"
-            className="p-2.5 rounded-xl flex-shrink-0 transition-colors bg-[#FFF5F5] text-[#C92A2A] hover:bg-[#FFE3E3] border border-[#FFC9C9]"
-            onMouseDown={handleCancel}
+            className="chat-composer__icon chat-composer__icon--cancel"
             onClick={handleCancel}
             title="取消本次对话"
+            aria-label="取消本次对话"
           >
             <CircleStop size={20} />
           </button>
         ) : (
           <button 
             type="submit" 
-            className={`p-2.5 rounded-xl flex-shrink-0 transition-colors ${
-              input.trim() || files.length > 0 ? 'bg-black text-white hover:bg-gray-800 shadow-md' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            }`}
+            className="chat-composer__icon chat-composer__icon--send"
             disabled={input.trim() === '' && files.length === 0} 
             title="发送"
+            aria-label="发送"
           >
             <Send size={20} />
           </button>

@@ -1,233 +1,358 @@
-// src/pages/QuestionBankPage.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Bookmark, Check, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import QuestionCard from '../components/QuestionCard';
+import Button from '../components/ui/Button';
+import IconButton from '../components/ui/IconButton';
+import PageHeader from '../components/ui/PageHeader';
+import Pagination from '../components/ui/Pagination';
+import Select from '../components/ui/Select';
+import { EmptyState, InlineAlert, LoadingState } from '../components/ui/FeedbackState';
+import { useToast } from '../contexts/ToastContext';
+import { ALL_CONCEPT_TAGS, CONCEPT_TAXONOMY } from '../utils/conceptsTaxonomy';
+import './QuestionBankPage.css';
 
 const QUESTION_TYPES = ['计算', '证明', '选择', '填空', '判断', '简答'];
+const QUESTION_TYPE_OPTIONS = [
+  { value: '', label: '全部题型' },
+  ...QUESTION_TYPES.map((type) => ({ value: type, label: type })),
+];
+const ANSWER_OPTIONS = [
+  { value: '', label: '不限' },
+  { value: 'true', label: '有答案' },
+  { value: 'false', label: '无答案' },
+];
 const PAGE_SIZE = 20;
 
-const QuestionBankPage = () => {
-  const navigate = useNavigate();
-  const [tab, setTab] = useState('search'); // 'search' | 'favorites'
+const normalizeSelectedTags = (tags) => (
+  Array.from(new Set((Array.isArray(tags) ? tags : []).filter((tag) => ALL_CONCEPT_TAGS.includes(tag))))
+);
 
-  // 搜索条件
+const ConceptTagPicker = ({ selectedTags, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handlePointerDown = (event) => {
+      if (!rootRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  const toggleTag = (tag) => {
+    onChange(selectedTags.includes(tag)
+      ? selectedTags.filter((item) => item !== tag)
+      : [...selectedTags, tag]);
+  };
+
+  return (
+    <div ref={rootRef} className={`question-tag-picker ${open ? 'is-open' : ''}`}>
+      <button
+        type="button"
+        className="question-tag-picker__trigger"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span>{selectedTags.length > 0 ? `已选 ${selectedTags.length} 个知识点` : '选择知识点'}</span>
+        <ChevronDown size={15} aria-hidden="true" />
+      </button>
+
+      {open && (
+        <div className="question-tag-picker__panel" role="dialog" aria-label="选择知识点">
+          <div className="question-tag-picker__selected">
+            {selectedTags.length === 0 ? (
+              <span>未选择知识点</span>
+            ) : selectedTags.map((tag) => (
+              <button key={tag} type="button" onClick={() => toggleTag(tag)}>
+                {tag}<X size={12} aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+          <div className="question-tag-picker__groups">
+            {Object.entries(CONCEPT_TAXONOMY).map(([chapter, tags]) => (
+              <section key={chapter}>
+                <h3>{chapter}</h3>
+                <div>
+                  {tags.map((tag) => {
+                    const selected = selectedTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        className={selected ? 'is-selected' : ''}
+                        aria-pressed={selected}
+                        onClick={() => toggleTag(tag)}
+                      >
+                        {selected && <Check size={12} aria-hidden="true" />}
+                        <span>{tag}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const QuestionBankPage = () => {
+  const { showToast } = useToast();
+  const [tab, setTab] = useState('search');
   const [query, setQuery] = useState('');
   const [questionType, setQuestionType] = useState('');
-  const [hasAnswer, setHasAnswer] = useState(''); // '' | 'true' | 'false'
-  const [tagInput, setTagInput] = useState('');
-
+  const [hasAnswer, setHasAnswer] = useState('');
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [results, setResults] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [favoritedIds, setFavoritedIds] = useState(new Set());
   const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState({
-    total: null,
-    limit: PAGE_SIZE,
-    offset: 0,
-    has_more: false,
-  });
+  const [pagination, setPagination] = useState({ total: null, limit: PAGE_SIZE, offset: 0, has_more: false });
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState('');
+  const appliedFiltersRef = useRef({
+    query: '',
+    questionType: '',
+    hasAnswer: '',
+    selectedTags: [],
+  });
 
   const loadFavorites = useCallback(async () => {
     try {
-      const res = await axios.get('/api/favorites');
-      const list = res.data.results || [];
+      const response = await axios.get('/api/favorites');
+      const list = response.data.results || [];
       setFavorites(list);
-      setFavoritedIds(new Set(list.map((q) => q.id)));
-    } catch (e) {
-      /* 忽略：未登录时由全局拦截器处理 */
+      setFavoritedIds(new Set(list.map((question) => question.id)));
+    } catch {
+      // 全局鉴权拦截器负责未登录场景。
     }
   }, []);
 
-  useEffect(() => {
-    loadFavorites();
-    // 进页面默认展示题库（空 query → 后端按页码浏览），避免初次进来一片空白
-    fetchQuestions(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadFavorites]);
-
-  const fetchQuestions = async (nextPage = 1) => {
+  const fetchQuestions = useCallback(async (nextPage = 1) => {
     const safePage = Math.max(1, nextPage);
+    const appliedFilters = appliedFiltersRef.current;
     setLoading(true);
     setSearched(true);
     setError('');
     try {
       const body = {
-        query: query.trim(),
+        query: appliedFilters.query.trim(),
         limit: PAGE_SIZE,
         offset: (safePage - 1) * PAGE_SIZE,
       };
-      if (questionType) body.question_type = questionType;
-      if (hasAnswer) body.has_answer = hasAnswer === 'true';
-      const tags = tagInput.split(',').map((s) => s.trim()).filter(Boolean);
+      if (appliedFilters.questionType) body.question_type = appliedFilters.questionType;
+      if (appliedFilters.hasAnswer) body.has_answer = appliedFilters.hasAnswer === 'true';
+      const tags = normalizeSelectedTags(appliedFilters.selectedTags);
       if (tags.length) body.concept_tags = tags;
-      const res = await axios.post('/api/questions/search', body);
-      setResults(res.data.results || []);
+      const response = await axios.post('/api/questions/search', body);
+      setResults(response.data.results || []);
       setPage(safePage);
       setPagination({
-        total: res.data.total ?? null,
-        limit: res.data.limit || PAGE_SIZE,
-        offset: res.data.offset || 0,
-        has_more: Boolean(res.data.has_more),
+        total: response.data.total ?? null,
+        limit: response.data.limit || PAGE_SIZE,
+        offset: response.data.offset || 0,
+        has_more: Boolean(response.data.has_more),
       });
-    } catch (e) {
+      setFilterOpen(false);
+    } catch (requestError) {
       setResults([]);
       setPagination({ total: null, limit: PAGE_SIZE, offset: 0, has_more: false });
-      setError(e.response?.data?.error || '题库搜索失败，请稍后重试');
+      setError(requestError.response?.data?.error || '题库搜索失败，请稍后重试');
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    loadFavorites();
+    fetchQuestions(1);
+  }, [fetchQuestions, loadFavorites]);
+
+  const applyFilters = (overrides = {}) => {
+    const nextFilters = {
+      query,
+      questionType,
+      hasAnswer,
+      selectedTags: normalizeSelectedTags(selectedTags),
+      ...overrides,
+    };
+    nextFilters.selectedTags = normalizeSelectedTags(nextFilters.selectedTags);
+    appliedFiltersRef.current = nextFilters;
+    if (Object.hasOwn(overrides, 'query')) setQuery(nextFilters.query);
+    if (Object.hasOwn(overrides, 'questionType')) setQuestionType(nextFilters.questionType);
+    if (Object.hasOwn(overrides, 'hasAnswer')) setHasAnswer(nextFilters.hasAnswer);
+    if (Object.hasOwn(overrides, 'selectedTags')) setSelectedTags(nextFilters.selectedTags);
+    fetchQuestions(1);
   };
 
-  const doSearch = () => fetchQuestions(1);
+  const clearFilters = () => {
+    applyFilters({ query: '', questionType: '', hasAnswer: '', selectedTags: [] });
+  };
+
+  const applyTagFilter = (tag) => {
+    setTab('search');
+    setSelectedTags([tag]);
+    applyFilters({ selectedTags: [tag], query: '', questionType: '', hasAnswer: '' });
+  };
 
   const toggleFavorite = async (exerciseId) => {
-    if (favoritedIds.has(exerciseId)) {
-      await axios.delete(`/api/favorites/${exerciseId}`);
-      setFavoritedIds((prev) => {
-        const n = new Set(prev);
-        n.delete(exerciseId);
-        return n;
-      });
-      setFavorites((prev) => prev.filter((q) => q.id !== exerciseId));
-    } else {
-      await axios.post('/api/favorites', { exercise_id: exerciseId });
-      setFavoritedIds((prev) => new Set(prev).add(exerciseId));
+    try {
+      if (favoritedIds.has(exerciseId)) {
+        await axios.delete(`/api/favorites/${exerciseId}`);
+        setFavoritedIds((current) => {
+          const next = new Set(current);
+          next.delete(exerciseId);
+          return next;
+        });
+        setFavorites((current) => current.filter((question) => question.id !== exerciseId));
+        showToast('已取消收藏', 'info');
+      } else {
+        await axios.post('/api/favorites', { exercise_id: exerciseId });
+        setFavoritedIds((current) => new Set(current).add(exerciseId));
+        showToast('题目已收藏', 'success');
+      }
+    } catch (requestError) {
+      showToast(requestError.response?.data?.error || '收藏操作失败', 'error');
     }
   };
 
   const showList = tab === 'search' ? results : favorites;
-  const totalPages = pagination.total == null
-    ? null
-    : Math.max(1, Math.ceil(pagination.total / PAGE_SIZE));
+  const totalPages = pagination.total == null ? null : Math.max(1, Math.ceil(pagination.total / PAGE_SIZE));
   const canPrev = tab === 'search' && page > 1 && !loading;
   const canNext = tab === 'search' && !loading && (
     pagination.has_more || (totalPages != null && page < totalPages)
   );
 
-  return (
-    <div className="max-w-3xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold text-[#212529]">题库</h1>
-        <button
-          onClick={() => navigate('/workspace')}
-          className="text-sm text-[#868E96] hover:text-[#212529]"
-        >
-          返回工作台
-        </button>
-      </div>
-
-      <div className="flex gap-2 mb-4 border-b border-[#DEE2E6]">
-        <button
-          onClick={() => setTab('search')}
-          className={`px-3 py-2 text-sm ${
-            tab === 'search' ? 'border-b-2 border-[#1971C2] text-[#1971C2]' : 'text-[#868E96]'
-          }`}
-        >
-          搜索
-        </button>
-        <button
-          onClick={() => {
-            setTab('favorites');
-            loadFavorites();
-          }}
-          className={`px-3 py-2 text-sm ${
-            tab === 'favorites' ? 'border-b-2 border-[#1971C2] text-[#1971C2]' : 'text-[#868E96]'
-          }`}
-        >
-          我的收藏
-        </button>
-      </div>
-
-      {tab === 'search' && (
-        <div className="mb-4 space-y-3">
-          <div className="flex gap-2">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && doSearch()}
-              placeholder="搜索题目，如：求特征值 / 二次型标准形"
-              className="flex-1 h-10 px-3 border border-[#DEE2E6] rounded-md text-sm"
-            />
-            <button onClick={doSearch} className="px-4 h-10 bg-[#1971C2] text-white rounded-md text-sm">
-              搜索
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <select
-              value={questionType}
-              onChange={(e) => setQuestionType(e.target.value)}
-              className="h-9 px-2 border border-[#DEE2E6] rounded-md text-sm"
-            >
-              <option value="">全部题型</option>
-              {QUESTION_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-            <select
-              value={hasAnswer}
-              onChange={(e) => setHasAnswer(e.target.value)}
-              className="h-9 px-2 border border-[#DEE2E6] rounded-md text-sm"
-            >
-              <option value="">有无答案不限</option>
-              <option value="true">有答案（例题）</option>
-              <option value="false">无答案（练习）</option>
-            </select>
-            <input
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              placeholder="知识点（逗号分隔）"
-              className="h-9 px-2 border border-[#DEE2E6] rounded-md text-sm flex-1 min-w-[160px]"
-            />
-          </div>
-        </div>
-      )}
-
-      {loading && <p className="text-sm text-[#868E96]">搜索中…</p>}
-      {!loading && error && <p className="text-sm text-[#C92A2A]">{error}</p>}
-      {!loading && !error && tab === 'search' && searched && results.length === 0 && (
-        <p className="text-sm text-[#868E96]">没有匹配的题目。</p>
-      )}
-      {!loading && tab === 'favorites' && favorites.length === 0 && (
-        <p className="text-sm text-[#868E96]">还没有收藏题目。</p>
-      )}
-
-      {showList.map((q) => (
-        <QuestionCard
-          key={q.id}
-          question={q}
-          isFavorited={favoritedIds.has(q.id)}
-          onToggleFavorite={toggleFavorite}
+  const renderFilterFields = () => (
+    <>
+      <div className="question-filter-field">
+        <span>题型</span>
+        <Select
+          ariaLabel="题型"
+          value={questionType}
+          options={QUESTION_TYPE_OPTIONS}
+          onChange={setQuestionType}
         />
-      ))}
+      </div>
+      <div className="question-filter-field">
+        <span>答案</span>
+        <Select
+          ariaLabel="答案"
+          value={hasAnswer}
+          options={ANSWER_OPTIONS}
+          onChange={setHasAnswer}
+        />
+      </div>
+      <div className="question-filter-field question-filter-field--tags">
+        <span>知识点</span>
+        <ConceptTagPicker
+          selectedTags={selectedTags}
+          onChange={setSelectedTags}
+        />
+      </div>
+    </>
+  );
 
-      {tab === 'search' && searched && !loading && !error && results.length > 0 && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-[#868E96]">
-          <div>
-            第 {page} 页
-            {totalPages != null ? ` / 共 ${totalPages} 页` : ''}
-            {pagination.total != null ? ` · 共 ${pagination.total} 道题` : ''}
+  return (
+    <div className="page-surface question-bank-page">
+      <div className="page-container">
+        <PageHeader
+          eyebrow="教材题目"
+          title="题库"
+          description="检索教材例题和练习题，公式、知识点与出处保持完整。"
+          actions={<Button icon={SlidersHorizontal} className="question-mobile-filter" onClick={() => setFilterOpen(true)}>筛选</Button>}
+        />
+
+        <div className="question-toolbar">
+          <div className="question-tabs" role="tablist">
+            <button className={tab === 'search' ? 'is-active' : ''} onClick={() => setTab('search')}>全部题目</button>
+            <button className={tab === 'favorites' ? 'is-active' : ''} onClick={() => { setTab('favorites'); loadFavorites(); }}>
+              我的收藏 <span>{favorites.length}</span>
+            </button>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => fetchQuestions(page - 1)}
-              disabled={!canPrev}
-              className="h-9 px-3 rounded-md border border-[#DEE2E6] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#F8F9FA]"
-            >
-              上一页
-            </button>
-            <button
-              onClick={() => fetchQuestions(page + 1)}
-              disabled={!canNext}
-              className="h-9 px-3 rounded-md border border-[#DEE2E6] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#F8F9FA]"
-            >
-              下一页
-            </button>
+          {tab === 'search' && (
+            <form className="question-search" onSubmit={(event) => { event.preventDefault(); applyFilters(); }}>
+              <Search size={17} aria-hidden="true" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索题目、概念或公式" />
+              <Button type="submit" variant="primary" size="sm">搜索</Button>
+            </form>
+          )}
+        </div>
+
+        {tab === 'search' && (
+          <div className="question-filter-bar">
+            {renderFilterFields()}
+            <div className="question-filter-actions" aria-label="筛选操作">
+              <Button size="sm" variant="primary" onClick={() => applyFilters()}>应用筛选</Button>
+              <Button size="sm" variant="ghost" onClick={clearFilters}>清空</Button>
+            </div>
+          </div>
+        )}
+        {error && <div className="mb-3"><InlineAlert>{error}</InlineAlert></div>}
+
+        {loading ? (
+          <LoadingState label="正在检索题目..." />
+        ) : showList.length === 0 ? (
+          <EmptyState
+            icon={tab === 'favorites' ? Bookmark : Search}
+            title={tab === 'favorites' ? '还没有收藏题目' : '没有匹配的题目'}
+            description={tab === 'favorites' ? '在题目右上角点击收藏，方便以后集中练习。' : '尝试减少筛选条件或更换搜索关键词。'}
+          />
+        ) : (
+          <div className="question-list">
+            {showList.map((question) => (
+              <QuestionCard
+                key={question.id}
+                question={question}
+                isFavorited={favoritedIds.has(question.id)}
+                onToggleFavorite={toggleFavorite}
+                onTagClick={applyTagFilter}
+              />
+            ))}
+          </div>
+        )}
+
+        {tab === 'search' && searched && !loading && !error && results.length > 0 && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={pagination.total}
+            canPrev={canPrev}
+            canNext={canNext}
+            onPrev={() => fetchQuestions(page - 1)}
+            onNext={() => fetchQuestions(page + 1)}
+          />
+        )}
+      </div>
+
+      {filterOpen && (
+        <div className="question-filter-drawer-backdrop" onMouseDown={() => setFilterOpen(false)}>
+          <div className="question-filter-drawer" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="question-filter-drawer__header">
+              <strong>筛选题目</strong>
+              <IconButton icon={X} label="关闭筛选" onClick={() => setFilterOpen(false)} />
+            </div>
+            <div className="question-filter-drawer__body">{renderFilterFields()}</div>
+            <div className="question-filter-drawer__actions">
+              <Button variant="primary" onClick={() => applyFilters()}>应用筛选</Button>
+              <Button variant="ghost" onClick={clearFilters}>清空</Button>
+            </div>
           </div>
         </div>
       )}

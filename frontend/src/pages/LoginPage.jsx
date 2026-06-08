@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import axios from 'axios';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion as _motion } from 'framer-motion';
 import FormInput from '../components/FormInput';
 import PasswordInput from '../components/PasswordInput';
+import { useToast } from '../contexts/ToastContext';
 import './LoginPage.css';
 
 // 登录表单组件 (无变化)
 const LoginForm = ({ onLogin, loading, error, onSwitch, formValues, handleInputChange }) => (
-  <motion.div
+  <_motion.div
     key="login"
     initial={{ opacity: 0, x: -50 }}
     animate={{ opacity: 1, x: 0 }}
@@ -46,7 +47,7 @@ const LoginForm = ({ onLogin, loading, error, onSwitch, formValues, handleInputC
     <div className="toggle-link">
       还没有账户？ <button type="button" onClick={onSwitch}>立即注册</button>
     </div>
-  </motion.div>
+  </_motion.div>
 );
 
 // 注册表单组件 (使用您提供的UI结构)
@@ -62,7 +63,7 @@ const RegisterForm = ({
   codeCooldown,
   info,
 }) => (
-  <motion.div
+  <_motion.div
     key="register"
     initial={{ opacity: 0, x: 50 }}
     animate={{ opacity: 1, x: 0 }}
@@ -170,7 +171,7 @@ const RegisterForm = ({
     <div className="toggle-link">
       已有账户？ <button type="button" onClick={onSwitch}>返回登录</button>
     </div>
-  </motion.div>
+  </_motion.div>
 );
 
 
@@ -194,6 +195,7 @@ function LoginPage() {
   });
 
   const { loginAction, registerAction } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -270,7 +272,7 @@ function LoginPage() {
         code: formValues.code.trim()
       });
       if (result.success) {
-        alert('注册成功！请登录。');
+        showToast('注册成功，请使用新账户登录', 'success');
         setIsLoginView(true);
         setFormValues(prev => ({ ...prev, password: '', email: '', userIdNo: '', role: 'student', inviteCode: '', code: '' }));
       } else {
@@ -283,12 +285,19 @@ function LoginPage() {
   return (
     <div className="login-page-container">
       <div className="login-promo-panel">
-        <img src="/logo.svg" alt="App Logo" />
-        <h2>智能助教平台</h2>
-        <p>您的AI学习伙伴，集成了可视化教学、智能问答与自动批改。</p>
+        <div className="login-brand-lockup">
+          <img src="/logo.svg" alt="" />
+          <span>智能助教平台</span>
+        </div>
+        <div className="login-promo-copy">
+          <p className="login-kicker">Linear Algebra Workspace</p>
+          <h2>让每一次提问<br />都回到教材与课堂。</h2>
+          <p>AI 问答、教材检索、题库、作业和智能批改，统一在一个教学工作台中。</p>
+        </div>
+        <div className="login-promo-meta">面向学生与教师的线性代数学习平台</div>
       </div>
       <div className="login-form-wrapper">
-        <div className="form-container">
+        <div className="auth-form-panel">
           <AnimatePresence mode="wait">
             {isLoginView ? (
               <LoginForm 

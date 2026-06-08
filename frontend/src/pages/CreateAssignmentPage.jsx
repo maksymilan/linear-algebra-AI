@@ -1,139 +1,127 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { Paperclip, Send, X } from 'lucide-react';
 import AiResponse from '../components/AiResponse';
-import './CreateAssignmentPage.css'; // <-- 导入最终修正版的CSS
-
-// --- 图标组件 ---
-const ArrowLeftIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>;
-const SendIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>;
-const PaperclipIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>;
-const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
+import Button from '../components/ui/Button';
+import IconButton from '../components/ui/IconButton';
+import PageHeader from '../components/ui/PageHeader';
+import { InlineAlert } from '../components/ui/FeedbackState';
+import { useToast } from '../contexts/ToastContext';
+import './CreateAssignmentPage.css';
 
 const CreateAssignmentPage = () => {
-    const [title, setTitle] = useState('');
-    const [problemText, setProblemText] = useState('');
-    const [problemFile, setProblemFile] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-    const navigate = useNavigate();
+  const [title, setTitle] = useState('');
+  const [problemText, setProblemText] = useState('');
+  const [problemFile, setProblemFile] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const fileInputRef = useRef(null);
+  const navigate = useNavigate();
+  const { showToast } = useToast();
 
-    const handleFileChange = (e) => {
-        setProblemFile(e.target.files[0] || null);
-    };
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!title.trim()) {
+      setError('请输入作业标题');
+      return;
+    }
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setError('');
+    setIsLoading(true);
+    setError('');
+    const formData = new FormData();
+    formData.append('title', title.trim());
+    formData.append('problemText', problemText);
+    if (problemFile) formData.append('problemFile', problemFile);
 
-        if (!title.trim()) {
-            setError('请输入作业标题。');
-            setIsLoading(false);
-            return;
-        }
+    try {
+      await axios.post('/api/teacher/assignments', formData);
+      showToast('作业已发布', 'success');
+      navigate('/assignments');
+    } catch (requestError) {
+      setError(requestError.response?.data?.error || '发布失败，请稍后重试');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('problemText', problemText);
-        if (problemFile) {
-            formData.append('problemFile', problemFile);
-        }
+  return (
+    <div className="page-surface assignment-create-page">
+      <form className="page-container" onSubmit={handleSubmit}>
+        <PageHeader
+          eyebrow="教学任务"
+          title="发布作业"
+          description="编辑题目要求并实时检查 Markdown 与 LaTeX 的展示效果。"
+          actions={(
+            <Button type="submit" variant="primary" icon={Send} loading={isLoading}>
+              确认发布
+            </Button>
+          )}
+        />
 
-        try {
-            await axios.post('/api/teacher/assignments', formData);
-            alert('作业发布成功!');
-            navigate('/workspace');
-        } catch (err) {
-            setError(err.response?.data?.error || '发布失败，请联系管理员');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+        {error && <div className="assignment-create__alert"><InlineAlert>{error}</InlineAlert></div>}
 
-    return (
-        // 使用唯一的父类名来隔离样式
-        <div className="page-assignment-creator">
-            <div className="creator-card">
-                <header className="creator-header">
-                    <div className="creator-header-left">
-                        {/* --- 恢复的返回按钮 --- */}
-                        <button type="button" className="creator-btn btn-secondary" onClick={() => navigate('/workspace')}>
-                            <ArrowLeftIcon />
-                            <span>返回工作区</span>
-                        </button>
-                        <h1>发布新作业</h1>
-                    </div>
-                    <button onClick={handleSubmit} className="creator-btn btn-publish" disabled={isLoading}>
-                        <SendIcon />
-                        <span>{isLoading ? '发布中...' : '确认发布'}</span>
-                    </button>
-                </header>
+        <div className="assignment-create__grid">
+          <section className="assignment-create__editor ui-card">
+            <label className="assignment-field">
+              <span>作业标题</span>
+              <input
+                className="ui-field"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="例如：第一章 线性方程组"
+              />
+            </label>
 
-                <div className="creator-grid">
-                    {/* --- 左侧输入区 --- */}
-                    <div className="input-panel">
-                        <div className="form-group">
-                            <label htmlFor="title">作业标题</label>
-                            <input
-                                id="title"
-                                type="text"
-                                className="form-input"
-                                value={title}
-                                onChange={(e) => setTitle(e.target.value)}
-                                placeholder="例如：线性代数第一章练习"
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="problemText">题目详情 (支持 Markdown)</label>
-                            <textarea
-                                id="problemText"
-                                className="form-textarea"
-                                value={problemText}
-                                onChange={(e) => setProblemText(e.target.value)}
-                                placeholder="在这里输入题目、要求、提示等..."
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="file-upload">附件 (可选)</label>
-                            <input
-                                type="file"
-                                id="file-upload"
-                                onChange={handleFileChange}
-                                accept=".pdf,.png,.jpg,.jpeg"
-                                style={{ display: 'none' }}
-                            />
-                            <button type="button" className="creator-btn file-upload-label" onClick={() => document.getElementById('file-upload').click()}>
-                                <PaperclipIcon />
-                                <span>{problemFile ? '更改文件' : '选择文件'}</span>
-                            </button>
-                            {problemFile && (
-                                <div className="file-info">
-                                    <span>{problemFile.name}</span>
-                                    <button type="button" className="remove-file-button" onClick={() => setProblemFile(null)}>
-                                        <CloseIcon />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
+            <label className="assignment-field">
+              <span>题目详情</span>
+              <textarea
+                className="ui-textarea assignment-create__textarea"
+                value={problemText}
+                onChange={(event) => setProblemText(event.target.value)}
+                placeholder="输入题目、要求和提示，支持 Markdown 与 LaTeX..."
+              />
+            </label>
 
-                    {/* --- 右侧预览区 --- */}
-                    <div className="preview-panel">
-                        <label>实时预览</label>
-                        <div className="preview-box">
-                            <AiResponse content={problemText || "*在此输入内容后可实时预览...*"} />
-                        </div>
-                    </div>
-                </div>
-                {error && (
-                    <div style={{ padding: '0 2rem 2rem 2rem' }}>
-                        <p className="creator-error">{error}</p>
-                    </div>
+            <div className="assignment-field">
+              <span>附件</span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                hidden
+                onChange={(event) => setProblemFile(event.target.files?.[0] || null)}
+              />
+              <div className="assignment-file-row">
+                <Button icon={Paperclip} onClick={() => fileInputRef.current?.click()}>
+                  {problemFile ? '更换附件' : '选择附件'}
+                </Button>
+                {problemFile && (
+                  <div className="assignment-file-chip">
+                    <span>{problemFile.name}</span>
+                    <IconButton icon={X} label="移除附件" size="sm" onClick={() => {
+                      setProblemFile(null);
+                      if (fileInputRef.current) fileInputRef.current.value = '';
+                    }} />
+                  </div>
                 )}
+              </div>
             </div>
+          </section>
+
+          <section className="assignment-create__preview ui-card">
+            <div className="assignment-create__preview-heading">
+              <h2>实时预览</h2>
+              <span>学生端展示效果</span>
+            </div>
+            <div className="assignment-create__preview-content">
+              <AiResponse content={problemText || '*输入题目内容后将在这里预览。*'} />
+            </div>
+          </section>
         </div>
-    );
+      </form>
+    </div>
+  );
 };
 
 export default CreateAssignmentPage;

@@ -25,6 +25,12 @@
 .vis-canvas-wrapper {
     flex: 1;
     position: relative;
+    min-height: 0;
+    background: #f8fafc;
+}
+
+.vis-canvas-wrapper canvas {
+    display: block;
 }
 
 /* --- 矩阵输入器样式 --- */

@@ -8,6 +8,7 @@
 import logging
 from typing import List, Optional, Union
 
+from concepts_taxonomy import map_to_standard
 from database import get_db_conn
 from embedding_utils import create_embeddings
 
@@ -24,6 +25,18 @@ _COLS = (
 )
 
 
+def _normalize_concept_filters(concept_tags):
+    """归一化受控知识点筛选；多个 tag 表示同时包含这些 tag。"""
+    if not concept_tags:
+        return []
+    raw_items = []
+    for item in concept_tags:
+        cleaned = str(item or "").strip().lstrip("#").strip()
+        if cleaned:
+            raw_items.append(cleaned)
+    return map_to_standard(raw_items, max_tags=max(1, len(raw_items)))
+
+
 def _build_filters(question_type, exercise_type, has_answer, concept_tags):
     """构建两路共用的 WHERE 附加筛选子句和命名参数。"""
     clauses = []
@@ -37,9 +50,13 @@ def _build_filters(question_type, exercise_type, has_answer, concept_tags):
     if has_answer is not None:
         clauses.append("AND has_answer = %(has_answer)s")
         params["has_answer"] = bool(has_answer)
+    exact_tags = _normalize_concept_filters(concept_tags)
     if concept_tags:
-        clauses.append("AND concept_tags && %(concept_tags)s")
-        params["concept_tags"] = list(concept_tags)
+        if exact_tags:
+            clauses.append("AND concept_tags @> %(concept_tags)s")
+            params["concept_tags"] = exact_tags
+        else:
+            clauses.append("AND FALSE")
     return " ".join(clauses), params
 
 

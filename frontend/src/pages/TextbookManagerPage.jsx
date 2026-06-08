@@ -1,24 +1,18 @@
 import React from 'react';
 import TextbookManager from '../components/TextbookManager';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import PageHeader from '../components/ui/PageHeader';
 
-const TextbookManagerPage = () => {
-  const navigate = useNavigate();
-  return (
-    <div className="min-h-screen bg-[#F8F9FA] p-8">
-      <div className="max-w-5xl mx-auto">
-        <button 
-          onClick={() => navigate('/workspace')} 
-          className="flex items-center gap-2 text-[#868E96] hover:text-black transition-colors mb-6"
-        >
-          <ArrowLeft size={20} />
-          返回工作区
-        </button>
-        <TextbookManager />
-      </div>
+const TextbookManagerPage = () => (
+  <div className="page-surface">
+    <div className="page-container">
+      <PageHeader
+        eyebrow="知识库"
+        title="教材管理"
+        description="上传课程教材并跟踪 OCR、内容修复、题目提取和向量化进度。"
+      />
+      <TextbookManager />
     </div>
-  );
-};
+  </div>
+);
 
 export default TextbookManagerPage;

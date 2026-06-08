@@ -1,156 +1,170 @@
-/* src/pages/WorkspacePage.css */
-
-.workspace-container {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    width: 100vw;
-    background-color: var(--color-background-tertiary);
+.workspace-page {
+  background: var(--color-background-secondary);
 }
 
-.workspace-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--spacing-md) var(--spacing-xl);
-    background-color: var(--color-background-primary);
-    border-bottom: 1px solid var(--color-border);
-    flex-shrink: 0;
-    box-shadow: var(--shadow-sm);
+.workspace-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  background: #ffffff;
 }
 
-.workspace-header h1 {
-    margin: 0;
-    font-size: 1.5rem;
-    color: var(--color-text-primary);
+.workspace-summary > div {
+  min-width: 0;
+  padding: 1rem 1.15rem;
 }
 
-.workspace-header .user-info {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-lg);
+.workspace-summary > div + div {
+  border-left: 1px solid var(--color-border);
 }
 
-.workspace-header .user-info .user-display {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
+.workspace-summary span,
+.workspace-summary strong {
+  display: block;
 }
 
-.workspace-header .user-info .user-role-tag {
-    background-color: var(--color-primary-light);
-    color: var(--color-primary-dark);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--border-radius-sm);
-    font-size: 0.8rem;
-    font-weight: 500;
+.workspace-summary span {
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
 }
 
-
-.workspace-header .user-info span {
-    font-weight: 500;
-    color: var(--color-text-secondary);
+.workspace-summary strong {
+  overflow: hidden;
+  margin-top: 0.3rem;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.workspace-header .user-info button {
-    background: none;
-    border: 1px solid var(--color-border);
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--border-radius-md);
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-family: inherit;
-    transition: var(--transition-fast);
-}
-.workspace-header .user-info button:hover {
-    background-color: var(--color-background-secondary);
-    color: var(--color-danger);
-    border-color: var(--color-danger);
+.workspace-section {
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  background: #ffffff;
 }
 
-.workspace-main {
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--spacing-xl);
-    padding: var(--spacing-xl);
-    overflow: auto;
-    flex-wrap: wrap;
+.workspace-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
-.workspace-card {
-    display: flex;
-    flex-direction: column;
-    background-color: var(--color-background-primary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius-lg);
-    cursor: pointer;
-    transition: var(--transition-fast);
-    width: 320px;
-    height: 260px;          /* 固定高度，保证所有卡片视觉上完全一致 */
-    box-sizing: border-box;
-    overflow: hidden;       /* 防止描述文字把卡片撑高 */
-    box-shadow: var(--shadow-md);
+.workspace-section__header h2 {
+  margin: 0;
+  font-size: 0.94rem;
 }
 
-.workspace-card:hover {
-    transform: translateY(-5px);
-    box-shadow: var(--shadow-lg);
-    border-color: var(--color-primary);
+.workspace-section__header p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
 }
 
-.card-header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-lg);
-    border-bottom: 1px solid var(--color-border-light);
+.workspace-module-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.card-icon {
-    width: 48px;
-    height: 48px;
-    background-color: var(--color-primary);
-    color: white;
-    border-radius: var(--border-radius-md);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-.card-icon svg {
-    width: 24px;
-    height: 24px;
-}
-
-.card-header h2 {
-    margin: 0;
-    font-size: 1.5rem;
+.workspace-module {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+  min-height: 92px;
+  padding: 1rem;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: #ffffff;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast);
 }
 
-.card-content {
-    padding: var(--spacing-lg);
-    flex-grow: 1;
-    overflow: hidden;
-    display: flex;
-    align-items: flex-start;
-}
-.card-content p {
-    margin: 0;
-    font-size: 1rem;
-    line-height: 1.6;
-    color: var(--color-text-secondary);
-    display: -webkit-box;
-    -webkit-line-clamp: 3;       /* 最多 3 行，多余省略，保证所有卡片描述区高度一致 */
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.workspace-module:nth-child(odd) {
+  border-right: 1px solid var(--color-border);
 }
 
-.card-footer {
-    padding: var(--spacing-md) var(--spacing-lg);
-    text-align: right;
-    font-weight: 500;
-    color: var(--color-primary);
+.workspace-module:hover {
+  background: #fafafa;
+}
+
+.workspace-module__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: var(--border-radius-md);
+  background: #18181b;
+  color: #ffffff;
+}
+
+.workspace-module__body {
+  min-width: 0;
+}
+
+.workspace-module__body strong,
+.workspace-module__body span {
+  display: block;
+}
+
+.workspace-module__body strong {
+  font-size: 0.86rem;
+}
+
+.workspace-module__body span {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 0.25rem;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.workspace-module__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.workspace-module:hover .workspace-module__action {
+  color: #18181b;
+}
+
+@media (max-width: 720px) {
+  .workspace-module-list {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-module:nth-child(odd) {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .workspace-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-summary > div + div {
+    border-top: 1px solid var(--color-border);
+    border-left: 0;
+  }
+
+  .workspace-module {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  .workspace-module__action {
+    display: none;
+  }
 }

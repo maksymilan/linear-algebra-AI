@@ -1,203 +1,128 @@
-/* src/pages/ViewSubmissionsPage.css - 极简黑白灰主题 */
-
-.view-submissions-container {
-    padding: 2.5rem;
-    max-width: 1200px;
-    margin: 0 auto;
-    background-color: #F1F3F5;
-    min-height: 100vh;
-    box-sizing: border-box;
+.submissions-page__alert {
+  margin-bottom: 0.8rem;
 }
 
-.view-submissions-container .back-button {
-    background: #ffffff;
-    border: 1px solid #DEE2E6;
-    padding: 0.45rem 0.95rem;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    color: #495057;
-    font-family: inherit;
-    transition: all 0.15s ease-in-out;
-    margin-bottom: 1rem;
-}
-.view-submissions-container .back-button:hover {
-    color: #212529;
-    border-color: #212529;
-    background-color: #F8F9FA;
+.submissions-problem {
+  padding: 1.15rem;
 }
 
-.view-submissions-header {
-    margin-bottom: 2rem;
-    background-color: #ffffff;
-    border: 1px solid #DEE2E6;
-    border-radius: 12px;
-    padding: 2rem;
-}
-.view-submissions-header h1 {
-    font-size: 1.6rem;
-    margin: 0 0 1.5rem 0;
-    color: #212529;
-    font-weight: 600;
+.submissions-problem h2,
+.submissions-heading h2 {
+  margin: 0;
+  font-size: 0.88rem;
 }
 
-.problem-display-teacher {
-    background: #F8F9FA;
-    padding: 1.25rem 1.5rem;
-    border-radius: 8px;
-    border: 1px solid #E9ECEF;
-    color: #212529;
-}
-.problem-display-teacher strong {
-    color: #212529;
-    display: inline-block;
-    margin-bottom: 0.5rem;
+.submissions-problem > div {
+  min-width: 0;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.86rem;
+  line-height: 1.7;
 }
 
-.submissions-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
+.submissions-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 1.3rem 0 0.65rem;
 }
 
-.submission-card-item {
-    background: #ffffff;
-    border: 1px solid #DEE2E6;
-    border-radius: 12px;
-    padding: 1.5rem;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
-    grid-template-areas:
-        "info actions"
-        "comment comment";
-    gap: 1rem 1.5rem;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-.submission-card-item:hover {
-    border-color: #ADB5BD;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+.submissions-heading span {
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
 }
 
-.submission-info {
-    grid-area: info;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-.submission-info h4 {
-    margin: 0;
-    font-size: 1.1rem;
-    color: #212529;
-    font-weight: 600;
-}
-.submission-info span {
-    color: #868E96;
-    font-size: 0.9rem;
+.submissions-list {
+  display: grid;
+  gap: 0.65rem;
 }
 
-.status-tag {
-    font-size: 0.75rem;
-    font-weight: 500;
-    padding: 0.22rem 0.7rem;
-    border-radius: 999px;
-    letter-spacing: 0.02em;
-}
-.status-tag.submitted {
-    background-color: #F1F3F5;
-    color: #495057;
-    border: 1px solid #DEE2E6;
-}
-.status-tag.graded {
-    background-color: #212529;
-    color: #ffffff;
-    border: 1px solid #212529;
+.submission-review {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem 1rem;
+  padding: 1rem;
 }
 
-.submission-actions {
-    grid-area: actions;
-    align-self: center;
-}
-.view-file-btn {
-    padding: 0.55rem 1rem;
-    border: 1px solid #DEE2E6;
-    border-radius: 8px;
-    background: #ffffff;
-    color: #495057;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.15s ease-in-out;
-}
-.view-file-btn:hover:not(:disabled) {
-    color: #212529;
-    border-color: #212529;
-    background: #F8F9FA;
-}
-.view-file-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+.submission-review__meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.7rem;
 }
 
-.submission-comment-area {
-    grid-area: comment;
-    border-top: 1px solid #E9ECEF;
-    padding-top: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.8rem;
+.submission-review__meta > div {
+  min-width: 0;
 }
 
-.submission-comment-area textarea {
+.submission-review h3 {
+  overflow: hidden;
+  margin: 0;
+  font-size: 0.83rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submission-review p {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.68rem;
+}
+
+.submission-status {
+  flex: none;
+  min-height: 22px;
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.submission-status--graded {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.submission-status--submitted {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.submission-review__comment {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 0.6rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.submission-review__comment label {
+  color: #52525b;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.submission-review__comment .ui-button {
+  justify-self: end;
+}
+
+@media (max-width: 640px) {
+  .submission-review {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .submission-review > .ui-button {
+    justify-self: start;
+  }
+
+  .submission-review__comment {
+    grid-column: auto;
+  }
+
+  .submission-review__comment .ui-button {
     width: 100%;
-    box-sizing: border-box;
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
-    border: 1px solid #DEE2E6;
-    font-size: 0.95rem;
-    font-family: inherit;
-    line-height: 1.5;
-    resize: vertical;
-    background: #ffffff;
-    color: #212529;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-.submission-comment-area textarea:focus {
-    outline: none;
-    border-color: #212529;
-    box-shadow: 0 0 0 1px #212529;
-}
-
-.save-comment-btn {
-    align-self: flex-end;
-    padding: 0.5rem 1.1rem;
-    border: 1px solid #212529;
-    border-radius: 8px;
-    background-color: #212529;
-    color: #ffffff;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.15s ease-in-out;
-}
-.save-comment-btn:hover:not(:disabled) {
-    background-color: #000000;
-    border-color: #000000;
-}
-.save-comment-btn:disabled {
-    background-color: #ADB5BD;
-    border-color: #ADB5BD;
-    cursor: not-allowed;
-}
-
-.no-submissions-text {
-    text-align: center;
-    color: #868E96;
-    padding: 2.5rem 1rem;
-    background: #ffffff;
-    border: 1px dashed #DEE2E6;
-    border-radius: 12px;
+    justify-self: stretch;
+  }
 }

@@ -1,263 +1,161 @@
-/* src/pages/GradingPage.css - 极简黑白灰主题 */
-
-.grading-container {
-    width: 100%;
-    min-height: 100vh;
-    overflow-y: auto;
-    background-color: #F1F3F5;
-    padding: 2.5rem;
-    box-sizing: border-box;
+.grading-page__alert {
+  margin-bottom: 0.8rem;
 }
 
-.grading-content-wrapper {
-    max-width: 800px;
-    margin: 0 auto;
-    background-color: #ffffff;
-    border: 1px solid #DEE2E6;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
-.grading-header {
-    padding: 2rem 2.5rem;
-    border-bottom: 1px solid #DEE2E6;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.grading-header .back-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #212529;
-    font-size: 0.95rem;
-    padding: 0;
-    margin-bottom: 1rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    align-self: flex-start;
-    transition: color 0.15s ease-in-out;
-}
-.grading-header .back-button:hover {
-    color: #000000;
-    text-decoration: none;
-}
-
-.grading-header h1 {
-    font-size: 1.8rem;
-    margin: 0;
-    color: #212529;
-    font-weight: 600;
-}
-.grading-header p {
-    margin: 0;
-    color: #868E96;
-    font-size: 1rem;
-}
-
-.grading-main {
-    padding: 2.5rem;
+.grading-editor,
+.grading-result {
+  padding: 1.15rem;
 }
 
 .grading-workflow {
-    display: flex;
-    flex-direction: column;
-    gap: 3rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.workflow-step {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  background: #fafafa;
 }
 
 .workflow-step .step-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid #E9ECEF;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
 }
 
 .workflow-step .step-number {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background-color: #212529;
-    color: #ffffff;
-    font-size: 0.85rem;
-    font-weight: 600;
-    flex-shrink: 0;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 50%;
+  background: #18181b;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .workflow-step h2 {
-    font-size: 1.2rem;
-    font-weight: 600;
-    margin: 0;
-    color: #212529;
+  margin: 0;
+  font-size: 0.88rem;
 }
 
 .workflow-step > p {
-    margin: 0 0 1rem 0;
-    color: #868E96;
-    font-size: 0.9rem;
+  margin: 0.5rem 0 0.8rem;
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.55;
 }
 
 .problem-textarea {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 0.75rem 1rem;
-    border: 1px solid #DEE2E6;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 1rem;
-    line-height: 1.6;
-    margin-bottom: 1rem;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-    background-color: #F8F9FA;
-    color: #212529;
-    resize: vertical;
+  width: 100%;
+  min-height: 260px;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  background: #ffffff;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  resize: vertical;
 }
+
 .problem-textarea:focus {
-    outline: none;
-    border-color: #212529;
-    background-color: #ffffff;
-    box-shadow: 0 0 0 1px #212529;
+  outline: 0;
+  border-color: #52525b;
+  box-shadow: 0 0 0 2px rgba(24, 24, 27, 0.08);
 }
 
-.file-upload-area { margin-top: 0.5rem; }
-
-.submit-section {
-    margin-top: 2rem;
-    padding-top: 2rem;
-    border-top: 1px dashed #DEE2E6;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
+.workflow-step .file-upload-area {
+  margin-top: 0.65rem;
 }
 
-.submit-section button {
-    padding: 0.75rem 2.5rem;
-    border: 1px solid #212529;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 1rem;
-    font-weight: 600;
-    transition: all 0.15s ease-in-out;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    background-color: #212529;
-    color: #ffffff;
-}
-.submit-section button:hover:not(:disabled) {
-    background-color: #000000;
-    border-color: #000000;
-}
-.submit-section button:disabled {
-    background-color: #ADB5BD;
-    border-color: #ADB5BD;
-    cursor: not-allowed;
+.grading-submit {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
 }
 
-.results-section {
-    margin-top: 3rem;
-    padding: 2rem;
-    background-color: #F8F9FA;
-    border: 1px solid #E9ECEF;
-    border-radius: 8px;
-}
-.results-section h3 {
-    margin-top: 0;
-    margin-bottom: 1.5rem;
-    font-size: 1.5rem;
-    color: #212529;
-    font-weight: 600;
-}
-.correction-content {
-    background-color: #ffffff;
-    padding: 1.5rem;
-    border-radius: 6px;
-    border: 1px solid #DEE2E6;
-    margin-bottom: 2rem;
+.grading-result {
+  margin-top: 1rem;
 }
 
-/* --- 后续提问聊天框 --- */
-.follow-up-chat-container {
-    margin-top: 2rem;
-    border-top: 1px solid #E9ECEF;
-    padding-top: 2rem;
+.grading-result__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
-.follow-up-chat-container p {
-    margin: 0 0 1rem 0;
-    font-weight: 500;
-    color: #495057;
+.grading-result__heading h2 {
+  margin: 0;
+  font-size: 0.95rem;
 }
 
-.follow-up-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+.grading-result__heading span {
+  color: var(--color-text-secondary);
+  font-size: 0.68rem;
 }
 
-.follow-up-form textarea {
+.grading-result__content {
+  min-width: 0;
+  padding: 1rem 0;
+  font-size: 0.86rem;
+  line-height: 1.75;
+}
+
+.grading-followup {
+  display: grid;
+  gap: 0.6rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.grading-followup label {
+  color: #52525b;
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+
+.grading-followup .ui-textarea {
+  min-height: 90px;
+}
+
+.grading-followup .ui-button {
+  justify-self: end;
+}
+
+@media (max-width: 820px) {
+  .grading-workflow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .grading-editor,
+  .grading-result {
+    padding: 0.8rem;
+  }
+
+  .grading-submit .ui-button,
+  .grading-followup .ui-button {
     width: 100%;
-    box-sizing: border-box;
-    padding: 0.75rem 1rem;
-    border: 1px solid #DEE2E6;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 1rem;
-    line-height: 1.6;
-    resize: vertical;
-    min-height: 80px;
-    background-color: #ffffff;
-    color: #212529;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-.follow-up-form textarea:focus {
-    outline: none;
-    border-color: #212529;
-    box-shadow: 0 0 0 1px #212529;
-}
+    justify-self: stretch;
+  }
 
-.follow-up-form button {
-    padding: 0.7rem 1.4rem;
-    border: 1px solid #212529;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.95rem;
-    font-weight: 600;
-    transition: all 0.15s ease-in-out;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    background-color: #ffffff;
-    color: #212529;
-    align-self: flex-end;
-}
-.follow-up-form button:hover:not(:disabled) {
-    background-color: #212529;
-    color: #ffffff;
-}
-.follow-up-form button:disabled {
-    background-color: #F8F9FA;
-    color: #ADB5BD;
-    border-color: #DEE2E6;
-    cursor: not-allowed;
-}
-
-.error-message {
-    color: #dc3545;
-    font-weight: 500;
-    background-color: #FFF5F5;
-    border: 1px solid #FFE3E3;
-    padding: 0.6rem 0.9rem;
-    border-radius: 6px;
-    font-size: 0.9rem;
+  .grading-result__heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }

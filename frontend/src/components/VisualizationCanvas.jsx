@@ -1,8 +1,8 @@
 import React, { useMemo, useRef, useLayoutEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, Text } from '@react-three/drei';
 import * as THREE from 'three';
-import { useSpring, animated } from '@react-spring/three';
+import { useSpring, animated as _animated } from '@react-spring/three';
 import './VisualizationCanvas.css';
 
 // --- 1. 整个文件现在是纯展示组件，接收props ---
@@ -52,6 +52,19 @@ const ZUpMultiPlaneGrid = ({ ...props }) => (
   </>
 );
 
+const CameraRig = () => {
+  const { camera } = useThree();
+
+  useLayoutEffect(() => {
+    camera.position.set(4.2, -6, 4.8);
+    camera.up.set(0, 0, 1);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+  }, [camera]);
+
+  return null;
+};
+
 const Custom2DAxes = ({ size = 5 }) => {
     const vertices = useMemo(() => new Float32Array([0, 0, 0,  size, 0, 0, 0, 0, 0,  0, size, 0]), [size]);
     const colors = useMemo(() => new Float32Array([1, 0, 0,   1, 0, 0, 0, 1, 0,   0, 1, 0]), []);
@@ -93,11 +106,11 @@ const Scene3B1B = ({ matrix, dimension }) => {
   const i_hat_vec = useMemo(() => new THREE.Vector3(1, 0, 0), []);
   const j_hat_vec = useMemo(() => new THREE.Vector3(0, 1, 0), []);
   const k_hat_vec = useMemo(() => new THREE.Vector3(0, 0, 1), []);
-  const gridProps = { args: [10, 10], cellSize: 1, infiniteGrid: true, fadeDistance: 25 };
+  const gridProps = { args: [12, 12], cellSize: 1, infiniteGrid: true, fadeDistance: 26 };
   
   return (
     <>
-      <animated.group
+      <_animated.group
         matrix={mat.to((...m) => {
           const mat4 = new THREE.Matrix4();
           if (dimension === 2) { 
@@ -110,24 +123,28 @@ const Scene3B1B = ({ matrix, dimension }) => {
         matrixAutoUpdate={false}
       >
         {dimension === 3 
-            ? <ZUpMultiPlaneGrid {...gridProps} cellColor="#add8e6" sectionColor="#87ceeb" cellThickness={1.5} sectionThickness={2} /> 
-            : <ZUpGrid {...gridProps} cellColor="#add8e6" sectionColor="#87ceeb" cellThickness={1.5} sectionThickness={2} />
+            ? <ZUpMultiPlaneGrid {...gridProps} cellColor="#cbd5e1" sectionColor="#64748b" cellThickness={1.1} sectionThickness={1.8} />
+            : <ZUpGrid {...gridProps} cellColor="#cbd5e1" sectionColor="#64748b" cellThickness={1.1} sectionThickness={1.8} />
         }
-        <CustomArrow direction={i_hat_vec} length={1} color="#ff6347" />
-        <CustomArrow direction={j_hat_vec} length={1} color="#90ee90" />
-        {dimension === 3 && <CustomArrow direction={k_hat_vec} length={1} color="#f0e68c" />}
-      </animated.group>
+        <mesh position={[0, 0, 0]}>
+          <sphereGeometry args={[0.08, 24, 24]} />
+          <meshBasicMaterial color="#111827" toneMapped={false} />
+        </mesh>
+        <CustomArrow direction={i_hat_vec} length={2.2} color="#ff6347" />
+        <CustomArrow direction={j_hat_vec} length={2.2} color="#22c55e" />
+        {dimension === 3 && <CustomArrow direction={k_hat_vec} length={2.2} color="#f0e68c" />}
+      </_animated.group>
 
-      <animated.mesh position={mat.to((...m) => new THREE.Vector3(m[0], m[3], dimension === 3 ? m[6] : 0).multiplyScalar(1.2))}>
+      <_animated.mesh position={mat.to((...m) => new THREE.Vector3(m[0], m[3], dimension === 3 ? m[6] : 0).multiplyScalar(1.2))}>
           <Text fontSize={0.5} color="#d1422a" characters="î" />
-      </animated.mesh>
-      <animated.mesh position={mat.to((...m) => new THREE.Vector3(m[1], m[4], dimension === 3 ? m[7] : 0).multiplyScalar(1.2))}>
+      </_animated.mesh>
+      <_animated.mesh position={mat.to((...m) => new THREE.Vector3(m[1], m[4], dimension === 3 ? m[7] : 0).multiplyScalar(1.2))}>
           <Text fontSize={0.5} color="#59a959" characters="ĵ" />
-      </animated.mesh>
+      </_animated.mesh>
       {dimension === 3 &&
-          <animated.mesh position={mat.to((...m) => new THREE.Vector3(m[2], m[5], m[8]).multiplyScalar(1.2))}>
+          <_animated.mesh position={mat.to((...m) => new THREE.Vector3(m[2], m[5], m[8]).multiplyScalar(1.2))}>
               <Text fontSize={0.5} color="#b4a956" characters="k̂" />
-          </animated.mesh>
+          </_animated.mesh>
       }
       {dimension === 3 ? <axesHelper args={[5]} /> : <Custom2DAxes size={5} />}
     </>
@@ -216,10 +233,11 @@ const VisualizationCanvas = ({ dimension, matrix, onDimensionChange, onMatrixCha
               <MatrixInput matrix={matrix} onMatrixChange={onMatrixChange} dimension={dimension} />
           </div>
           <div className="vis-canvas-wrapper">
-              <Canvas camera={{ position: [4, 4, 4], up: [0, 0, 1] }}>
-                  <color attach="background" args={['#ffffff']} />
+              <Canvas camera={{ position: [4.2, -6, 4.8], up: [0, 0, 1], fov: 45, near: 0.1, far: 100 }}>
+                  <color attach="background" args={['#f8fafc']} />
+                  <CameraRig />
                   <Scene3B1B matrix={validMatrixForScene} dimension={dimension} />
-                  <OrbitControls />
+                  <OrbitControls target={[0, 0, 0]} makeDefault />
               </Canvas>
               <Legend dimension={dimension} />
               <div className="vis-overlay vis-view-label">

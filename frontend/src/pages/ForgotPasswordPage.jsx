@@ -6,11 +6,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useToast } from '../contexts/ToastContext';
+import { InlineAlert } from '../components/ui/FeedbackState';
 
 const API_BASE_URL = '';
 
 const ForgotPasswordPage = () => {
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [step, setStep] = useState(1);
 
     const [username, setUsername] = useState('');
@@ -76,7 +79,7 @@ const ForgotPasswordPage = () => {
                 code: code.trim(),
                 new_password: newPassword,
             });
-            alert('密码重置成功，请使用新密码登录');
+            showToast('密码重置成功，请使用新密码登录', 'success');
             navigate('/login');
         } catch (e) {
             setError(e.response?.data?.error || '重置失败');
@@ -86,8 +89,8 @@ const ForgotPasswordPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#F1F3F5] flex items-center justify-center px-4">
-            <div className="w-full max-w-md bg-white border border-[#DEE2E6] rounded-xl shadow-sm p-8">
+        <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center px-4 py-8">
+            <div className="w-full max-w-md bg-white border border-[#E4E4E7] rounded-lg shadow-sm p-6 sm:p-8">
                 <div className="mb-6">
                     <h1 className="text-2xl font-semibold text-[#212529] m-0">找回密码</h1>
                     <p className="text-sm text-[#868E96] mt-1 mb-0">
@@ -102,16 +105,8 @@ const ForgotPasswordPage = () => {
                     <StepPill active={step >= 2} label="2 · 设置新密码" />
                 </div>
 
-                {error && (
-                    <div className="mb-4 text-sm text-[#dc3545] bg-[#FFF5F5] border border-[#FFE3E3] rounded-md px-3 py-2">
-                        {error}
-                    </div>
-                )}
-                {info && !error && (
-                    <div className="mb-4 text-sm text-[#495057] bg-[#F8F9FA] border border-[#DEE2E6] rounded-md px-3 py-2">
-                        {info}
-                    </div>
-                )}
+                {error && <div className="mb-4"><InlineAlert>{error}</InlineAlert></div>}
+                {info && !error && <div className="mb-4"><InlineAlert tone="info">{info}</InlineAlert></div>}
 
                 {step === 1 ? (
                     <form
@@ -140,7 +135,7 @@ const ForgotPasswordPage = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full h-10 bg-[#212529] text-white rounded-md font-medium hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="ui-button ui-button--primary ui-button--md w-full"
                         >
                             {loading ? '发送中...' : '发送验证码'}
                         </button>
@@ -192,14 +187,14 @@ const ForgotPasswordPage = () => {
                             <button
                                 type="button"
                                 onClick={() => setStep(1)}
-                                className="h-10 px-4 text-sm border border-[#DEE2E6] rounded-md text-[#495057] bg-white hover:border-[#212529] hover:text-[#212529] transition-colors"
+                                className="ui-button ui-button--secondary ui-button--md"
                             >
                                 上一步
                             </button>
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="flex-1 h-10 bg-[#212529] text-white rounded-md font-medium hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                className="ui-button ui-button--primary ui-button--md flex-1"
                             >
                                 {loading ? '处理中...' : '重置密码'}
                             </button>

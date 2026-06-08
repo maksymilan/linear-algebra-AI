@@ -1,11 +1,11 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion as _motion } from 'framer-motion';
 import './FileStatus.css';
 
 const Spinner = () => <div className="spinner"></div>;
 
 const FileStatus = ({ file, onRemove }) => (
-    <motion.div
+    <_motion.div
         className="file-status"
         layout
         initial={{ opacity: 0, y: -10 }}
@@ -22,7 +22,7 @@ const FileStatus = ({ file, onRemove }) => (
         {!file.isLoading && onRemove && (
             <button onClick={() => onRemove(file.id)} className="delete-btn" style={{ display: 'block', position: 'static', fontSize: '1rem' }}>×</button>
         )}
-    </motion.div>
+    </_motion.div>
 );
 
 export default FileStatus;
