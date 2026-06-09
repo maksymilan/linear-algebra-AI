@@ -1,12 +1,21 @@
-import React from 'react';
-import { Bookmark, BookmarkCheck } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bookmark, BookmarkCheck, Sparkles, Pencil, Eye, EyeOff, Loader2 } from 'lucide-react';
 import AiResponse from './AiResponse';
 import IconButton from './ui/IconButton';
-import autoWrapMath from '../utils/autoWrapMath';
 
 const TYPE_LABEL = { example: '例题', homework: '课后习题' };
 
-const QuestionCard = ({ question, isFavorited, onToggleFavorite, onTagClick }) => {
+const QuestionCard = ({
+  question,
+  isFavorited,
+  onToggleFavorite,
+  onTagClick,
+  userRole,
+  onExplain,
+  onEditAnswer,
+  explaining = false,
+}) => {
+  const [showAnswer, setShowAnswer] = useState(false);
   const tags = Array.isArray(question.concept_tags)
     ? question.concept_tags
     : (question.concept_tags || '').split(',').map((item) => item.trim()).filter(Boolean);
@@ -15,6 +24,10 @@ const QuestionCard = ({ question, isFavorited, onToggleFavorite, onTagClick }) =
     question.textbook_name ? `《${question.textbook_name}》` : '',
     question.page_num ? `第 ${question.page_num} 页` : '',
   ].filter(Boolean);
+  const answerText = (question.answer || '').trim();
+  const solutionText = (question.solution || '').trim();
+  const hasAnswerContent = Boolean(answerText || solutionText);
+  const isTeacher = userRole === 'teacher';
 
   return (
     <article className="question-row">
@@ -35,8 +48,26 @@ const QuestionCard = ({ question, isFavorited, onToggleFavorite, onTagClick }) =
         />
       </div>
       <div className="question-row__content">
-        <AiResponse content={autoWrapMath(question.stem || '')} />
+        <AiResponse content={question.stem || ''} />
       </div>
+
+      {showAnswer && hasAnswerContent && (
+        <div className="question-row__answer">
+          {answerText && (
+            <div className="question-answer__block">
+              <span className="question-answer__label">答案</span>
+              <AiResponse content={answerText} />
+            </div>
+          )}
+          {solutionText && (
+            <div className="question-answer__block">
+              <span className="question-answer__label">解析</span>
+              <AiResponse content={solutionText} />
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="question-row__footer">
         <div className="question-row__tags">
           {tags.map((tag) => (
@@ -49,6 +80,34 @@ const QuestionCard = ({ question, isFavorited, onToggleFavorite, onTagClick }) =
         </div>
         {sourceParts.length > 0 && <div className="question-row__source">{sourceParts.join(' · ')}</div>}
       </div>
+
+      {(hasAnswerContent || isTeacher || onExplain) && (
+        <div className="question-row__actions">
+          {hasAnswerContent && (
+            <button type="button" className="question-action" onClick={() => setShowAnswer((v) => !v)}>
+              {showAnswer ? <EyeOff size={14} aria-hidden="true" /> : <Eye size={14} aria-hidden="true" />}
+              {showAnswer ? '收起答案' : '查看答案'}
+            </button>
+          )}
+          {isTeacher && (
+            <button type="button" className="question-action" onClick={() => onEditAnswer?.(question)}>
+              <Pencil size={14} aria-hidden="true" />
+              {question.has_answer ? '编辑答案' : '录入答案'}
+            </button>
+          )}
+          {!isTeacher && onExplain && (
+            <button
+              type="button"
+              className="question-action question-action--primary"
+              disabled={explaining}
+              onClick={() => onExplain(question)}
+            >
+              {explaining ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <Sparkles size={14} aria-hidden="true" />}
+              {explaining ? 'AI 讲解生成中…' : 'AI 讲解'}
+            </button>
+          )}
+        </div>
+      )}
     </article>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, CheckCircle2, FileText, Upload } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Download, FileText, Upload } from 'lucide-react';
 import AiResponse from '../components/AiResponse';
 import Button from '../components/ui/Button';
 import PageHeader from '../components/ui/PageHeader';
@@ -64,6 +64,19 @@ const SubmitAssignmentPage = () => {
     }
   };
 
+  const handleOpenAttachment = async () => {
+    if (!assignment?.problemFileUrl) return;
+    setError('');
+    try {
+      const response = await axios.get(assignment.problemFileUrl, { responseType: 'blob' });
+      const objectUrl = URL.createObjectURL(response.data);
+      window.open(objectUrl, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    } catch (requestError) {
+      setError(requestError.response?.data?.error || '无法打开题目附件');
+    }
+  };
+
   return (
     <div className="page-surface submit-assignment-page">
       <div className="page-container page-container--narrow">
@@ -81,7 +94,33 @@ const SubmitAssignmentPage = () => {
           <div className="submit-assignment__stack">
             <section className="submit-assignment__problem ui-card">
               <h2>题目要求</h2>
-              <div><AiResponse content={assignment?.problemText || '暂无题目内容'} /></div>
+              <div><AiResponse content={assignment?.problemText || '暂无手写题目内容'} /></div>
+              {assignment?.exercises?.length > 0 && (
+                <div className="submit-assignment__exercise-list">
+                  {assignment.exercises.map((exercise, index) => (
+                    <article key={exercise.id}>
+                      <div>
+                        <strong>{exercise.exercise_number || `题库题目 ${index + 1}`}</strong>
+                        <span>{exercise.textbook_name}{exercise.page_num ? ` · 第 ${exercise.page_num} 页` : ''}</span>
+                      </div>
+                      <AiResponse content={exercise.stem || ''} />
+                    </article>
+                  ))}
+                </div>
+              )}
+              {assignment?.problemFileUrl && (
+                <div className="submit-assignment__attachment">
+                  <FileText size={17} aria-hidden="true" />
+                  <span>{assignment.problemFileName || '题目附件'}</span>
+                  <Button
+                    size="sm"
+                    icon={Download}
+                    onClick={handleOpenAttachment}
+                  >
+                    打开附件
+                  </Button>
+                </div>
+              )}
             </section>
 
             <section className="submit-assignment__upload ui-card">

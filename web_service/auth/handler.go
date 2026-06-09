@@ -28,7 +28,21 @@ type RegisterRequest struct {
 	UserIDNo   string `json:"user_id_no" binding:"required"`
 	Role       string `json:"role" binding:"required"` // **直接要求前端提供角色**
 	InviteCode string `json:"invite_code"`             // 可选参数：班级邀请码
-	Code       string `json:"code" binding:"required"` // 邮箱注册验证码
+	Code       string `json:"code"`                    // 邮箱注册验证码（白名单测试邮箱可免）
+}
+
+// uniquifyWhitelistEmail 给白名单测试邮箱拼接学工号后缀，保证 users.email 唯一约束不冲突。
+// 登录用用户名而非邮箱，故对登录无影响；仅用于让同一邮箱可注册多个测试账号。
+func uniquifyWhitelistEmail(email, suffix string) string {
+	suffix = strings.TrimSpace(suffix)
+	if suffix == "" {
+		suffix = "x"
+	}
+	at := strings.Index(email, "@")
+	if at < 0 {
+		return email + "+" + suffix
+	}
+	return email[:at] + "+" + suffix + email[at:]
 }
 
 type LoginRequest struct {
@@ -54,8 +68,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	req.Email = normalizeEmail(req.Email)
 	req.Code = strings.TrimSpace(req.Code)
 
+	// 白名单测试邮箱：放开"邮箱"唯一性 + 免验证码，方便同一邮箱注册多个测试账号。
+	// 用户名 / 学工号仍要求唯一。
+	whitelisted := bypassRegisterEmailCheck(req.Email)
+
 	var existingUser User
-	if h.DB.Where("username = ? OR email = ? OR user_id_no = ?", req.Username, req.Email, req.UserIDNo).First(&existingUser).Error == nil {
+	dupQuery := h.DB.Where("username = ? OR user_id_no = ?", req.Username, req.UserIDNo)
+	if !whitelisted {
+		dupQuery = h.DB.Where("username = ? OR email = ? OR user_id_no = ?", req.Username, req.Email, req.UserIDNo)
+	}
+	if dupQuery.First(&existingUser).Error == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "用户名、邮箱或学工号已存在"})
 		return
 	}
@@ -67,19 +89,27 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	tx := h.DB.Begin()
-	if err := ConsumeVerificationCode(tx, req.Email, "register", req.Code); err != nil {
-		tx.Rollback()
-		message := "验证码无效"
-		if errors.Is(err, ErrVerificationCodeExpired) {
-			message = "验证码已过期，请重新获取"
+	if !whitelisted {
+		if err := ConsumeVerificationCode(tx, req.Email, "register", req.Code); err != nil {
+			tx.Rollback()
+			message := "验证码无效"
+			if errors.Is(err, ErrVerificationCodeExpired) {
+				message = "验证码已过期，请重新获取"
+			}
+			c.JSON(http.StatusBadRequest, gin.H{"error": message})
+			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": message})
-		return
+	}
+
+	// 白名单邮箱去重存储（满足 users.email 唯一约束；登录用用户名不受影响）
+	storedEmail := req.Email
+	if whitelisted {
+		storedEmail = uniquifyWhitelistEmail(req.Email, req.UserIDNo)
 	}
 
 	newUser := User{
 		Username:     req.Username,
-		Email:        req.Email,
+		Email:        storedEmail,
 		UserIDNo:     req.UserIDNo,
 		PasswordHash: string(hashedPassword),
 		Role:         req.Role, // **直接使用前端提供的角色**

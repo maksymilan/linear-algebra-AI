@@ -60,6 +60,115 @@
   white-space: nowrap;
 }
 
+.assignment-question-search {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding-left: 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  background: #ffffff;
+  color: #a1a1aa;
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.assignment-question-search:focus-within {
+  border-color: #d4d4d8;
+  background: #fafafa;
+  box-shadow: 0 0 0 1px #f4f4f5;
+}
+
+.assignment-question-search input {
+  min-width: 0;
+  height: 38px;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #18181b;
+  font-size: 0.8rem;
+}
+
+.assignment-question-results,
+.assignment-selected-questions {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.assignment-question-results {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.assignment-question-results button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.62rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  background: #ffffff;
+  color: #52525b;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.assignment-question-results button:hover {
+  border-color: #d4d4d8;
+  background: #fafafa;
+}
+
+.assignment-question-results button.is-added {
+  background: #f4f4f5;
+  color: #71717a;
+}
+
+.assignment-question-results button span,
+.assignment-selected-questions div span {
+  min-width: 0;
+}
+
+.assignment-question-results strong,
+.assignment-question-results small,
+.assignment-selected-questions span,
+.assignment-selected-questions small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignment-question-results strong {
+  color: #18181b;
+  font-size: 0.78rem;
+}
+
+.assignment-question-results small,
+.assignment-selected-questions small {
+  margin-top: 0.15rem;
+  color: #a1a1aa;
+  font-size: 0.66rem;
+}
+
+.assignment-selected-questions div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 140px) auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.35rem 0.35rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  background: #fafafa;
+  color: #52525b;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
 .assignment-create__preview {
   display: flex;
   min-height: 500px;

@@ -9,6 +9,8 @@ __pycache__/
 .env
 .env.*
 **/.env
+# 但部署模板（不含真实密钥）需随仓库分发
+!deploy/.env.example
 
 # 忽略所有层级下的虚拟环境文件夹
 venv/
@@ -22,3 +24,6 @@ node_modules/
 .gocache/
 web_service/bin/
 .pycache_tmp/
+
+TODO.md
+.claude/

@@ -300,6 +300,7 @@ func (h *ClassHandler) ListMyClasses(c *gin.Context) {
 		CurrentWeek    int    `json:"current_week"`
 		StudentCount   int64  `json:"student_count"`
 		MaterialsCount int64  `json:"materials_count"`
+		TextbookCount  int64  `json:"textbook_count"`
 	}
 
 	overviews := make([]ClassOverview, 0, len(classes))
@@ -310,6 +311,9 @@ func (h *ClassHandler) ListMyClasses(c *gin.Context) {
 		var matCount int64
 		h.DB.Model(&ClassWeeklyMaterial{}).Where("class_id = ?", cls.ID).Count(&matCount)
 
+		var textbookCount int64
+		h.DB.Model(&ClassTextbook{}).Where("class_id = ?", cls.ID).Count(&textbookCount)
+
 		overviews = append(overviews, ClassOverview{
 			ID:             cls.ID,
 			Name:           cls.Name,
@@ -317,6 +321,7 @@ func (h *ClassHandler) ListMyClasses(c *gin.Context) {
 			CurrentWeek:    cls.CurrentWeek,
 			StudentCount:   studentCount,
 			MaterialsCount: matCount,
+			TextbookCount:  textbookCount,
 		})
 	}
 
@@ -346,13 +351,27 @@ func (h *ClassHandler) GetClassDetail(c *gin.Context) {
 	var students []User
 	h.DB.Where("class_id = ? AND role = ?", cls.ID, "student").Order("username asc").Find(&students)
 
-	// 3. 查该老师发布的全部作业 id，用来限定统计范围
-	type assignmentIDRow struct {
-		ID uint
-	}
+	// 3. 查该班级可见的作业 id，用来限定统计范围
 	var aids []uint
-	h.DB.Table("assignments").Where("teacher_id = ?", teacherID).Pluck("id", &aids)
+	h.DB.Table("assignments").
+		Where("(class_id = ?) OR (class_id IS NULL AND teacher_id = ?)", cls.ID, teacherID).
+		Pluck("id", &aids)
 	totalAssignments := len(aids)
+
+	type TextbookBrief struct {
+		ID        uint   `json:"id"`
+		Name      string `json:"name"`
+		Status    string `json:"status"`
+		CreatedAt string `json:"created_at"`
+	}
+	var selectedTextbooks []TextbookBrief
+	h.DB.Raw(`
+		SELECT t.id, t.name, t.status, t.created_at
+		FROM class_textbooks ct
+		JOIN textbooks t ON t.id = ct.textbook_id
+		WHERE ct.class_id = ?
+		ORDER BY t.created_at DESC
+	`, cls.ID).Scan(&selectedTextbooks)
 
 	// 4. 汇总每个学生的：提交数 / 已批改数 / AI 对话次数
 	type StudentStat struct {
@@ -422,6 +441,7 @@ func (h *ClassHandler) GetClassDetail(c *gin.Context) {
 			"total_assignments": totalAssignments,
 			"total_students":    len(students),
 			"total_submissions": totalSubmissions,
+			"textbooks":         selectedTextbooks,
 		},
 		"students": stats,
 	})

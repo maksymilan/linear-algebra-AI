@@ -29,6 +29,10 @@ const ClassManagementPage = () => {
     const [creating, setCreating] = useState(false);
     const [copiedCode, setCopiedCode] = useState(null);
     const [err, setErr] = useState('');
+    const [textbooks, setTextbooks] = useState([]);
+    const [loadingTextbooks, setLoadingTextbooks] = useState(false);
+    const [selectedTextbookIds, setSelectedTextbookIds] = useState([]);
+    const [savingTextbooks, setSavingTextbooks] = useState(false);
 
     // 教学进度 / PPT 上传
     const [weekDraft, setWeekDraft] = useState(1);
@@ -39,6 +43,19 @@ const ClassManagementPage = () => {
     const fileInputRef = useRef(null);
 
     const authHeader = { headers: { Authorization: `Bearer ${token}` } };
+
+    const fetchTextbooks = useCallback(async () => {
+        setLoadingTextbooks(true);
+        try {
+            const resp = await axios.get(`${API_BASE_URL}/api/teacher/textbooks`, authHeader);
+            setTextbooks(Array.isArray(resp.data) ? resp.data : []);
+        } catch (e) {
+            setErr(e.response?.data?.error || '获取教材列表失败');
+        } finally {
+            setLoadingTextbooks(false);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [token]);
 
     const fetchClasses = useCallback(async () => {
         setLoadingList(true);
@@ -67,6 +84,7 @@ const ClassManagementPage = () => {
             const cw = resp.data?.class?.current_week ?? 1;
             setWeekDraft(cw);
             setUploadWeek(cw && cw > 0 ? cw : 1);
+            setSelectedTextbookIds((resp.data?.class?.textbooks || []).map((item) => item.id));
             setUploadResult(null);
         } catch (e) {
             setErr(e.response?.data?.error || '获取班级详情失败');
@@ -79,7 +97,8 @@ const ClassManagementPage = () => {
 
     useEffect(() => {
         fetchClasses();
-    }, [fetchClasses]);
+        fetchTextbooks();
+    }, [fetchClasses, fetchTextbooks]);
 
     useEffect(() => {
         if (selectedClassId) fetchDetail(selectedClassId);
@@ -170,6 +189,32 @@ const ClassManagementPage = () => {
         } finally {
             setUploadingPpt(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const toggleTextbookSelection = (textbookId) => {
+        setSelectedTextbookIds((current) => (
+            current.includes(textbookId)
+                ? current.filter((id) => id !== textbookId)
+                : [...current, textbookId]
+        ));
+    };
+
+    const handleSaveTextbooks = async () => {
+        if (!selectedClassId) return;
+        setSavingTextbooks(true);
+        setErr('');
+        try {
+            await axios.put(
+                `${API_BASE_URL}/api/teacher/classes/${selectedClassId}/textbooks`,
+                { textbook_ids: selectedTextbookIds },
+                authHeader
+            );
+            await Promise.all([fetchClasses(), fetchDetail(selectedClassId), fetchTextbooks()]);
+        } catch (e) {
+            setErr(e.response?.data?.error || '保存班级教材范围失败');
+        } finally {
+            setSavingTextbooks(false);
         }
     };
 
@@ -279,7 +324,7 @@ const ClassManagementPage = () => {
                                     </div>
 
                                     {/* 班级指标卡片 */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+									<div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
                                         <StatCard
                                             icon={<Users size={16} />}
                                             label="学生数"
@@ -295,11 +340,16 @@ const ClassManagementPage = () => {
                                             label="已发布作业"
                                             value={detail?.class?.total_assignments ?? 0}
                                         />
-                                        <StatCard
-                                            icon={<FileCheck size={16} />}
-                                            label="累计提交"
-                                            value={detail?.class?.total_submissions ?? 0}
-                                        />
+										<StatCard
+											icon={<FileCheck size={16} />}
+											label="累计提交"
+											value={detail?.class?.total_submissions ?? 0}
+										/>
+										<StatCard
+											icon={<BookOpen size={16} />}
+											label="已选教材"
+											value={detail?.class?.textbooks?.length ?? selectedClassMeta.textbook_count ?? 0}
+										/>
                                     </div>
                                 </div>
 
@@ -385,11 +435,75 @@ const ClassManagementPage = () => {
                                                     </pre>
                                                 </div>
                                             )}
+	                                        </div>
+	                                    </div>
+	                                </div>
+
+                                <div className="px-6 py-5 border-b border-[#E9ECEF] bg-white">
+                                    <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+                                        <div>
+                                            <div className="flex items-center gap-1.5 text-sm font-medium text-[#212529]">
+                                                <BookOpen size={14} /> 班级可访问教材
+                                            </div>
+                                            <p className="text-xs text-[#868E96] m-0 mt-1">
+                                                学生题库、收藏和 AI 助教教材检索只会使用这里选中的教材。
+                                            </p>
                                         </div>
+                                        <button
+                                            onClick={handleSaveTextbooks}
+                                            disabled={savingTextbooks || loadingTextbooks}
+                                            className="h-9 px-3 text-sm text-white bg-[#212529] border border-[#212529] rounded-md hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5"
+                                        >
+                                            {savingTextbooks ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                            保存教材范围
+                                        </button>
                                     </div>
+                                    {loadingTextbooks ? (
+                                        <div className="py-5 text-center text-sm text-[#868E96] border border-dashed border-[#DEE2E6] rounded-lg">
+                                            正在加载教材...
+                                        </div>
+                                    ) : textbooks.length === 0 ? (
+                                        <div className="py-5 text-center text-sm text-[#868E96] border border-dashed border-[#DEE2E6] rounded-lg">
+                                            还没有教材。请先到“教材管理”上传教材，再回到这里分配给班级。
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            {textbooks.map((textbook) => {
+                                                const checked = selectedTextbookIds.includes(textbook.id);
+                                                const disabled = textbook.status !== 'completed';
+                                                return (
+                                                    <button
+                                                        key={textbook.id}
+                                                        type="button"
+                                                        disabled={disabled}
+                                                        onClick={() => toggleTextbookSelection(textbook.id)}
+                                                        className={`text-left border rounded-lg px-3 py-2.5 transition-colors ${
+                                                            checked
+                                                                ? 'border-[#212529] bg-[#F8F9FA]'
+                                                                : 'border-[#E9ECEF] bg-white hover:border-[#ADB5BD]'
+                                                        } ${disabled ? 'opacity-55 cursor-not-allowed' : ''}`}
+                                                    >
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="min-w-0">
+                                                                <div className="text-sm font-medium text-[#212529] truncate">{textbook.name}</div>
+                                                                <div className="text-xs text-[#868E96] mt-0.5">
+                                                                    {textbook.status === 'completed' ? '解析完成' : '解析未完成'} · {formatDate(textbook.created_at)}
+                                                                </div>
+                                                            </div>
+                                                            <span className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                                                                checked ? 'bg-[#212529] border-[#212529] text-white' : 'border-[#CED4DA] text-transparent'
+                                                            }`}>
+                                                                <Check size={13} />
+                                                            </span>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* 学生学习情况表 */}
+	                                {/* 学生学习情况表 */}
                                 <div className="p-6">
                                     <div className="flex items-center justify-between mb-3">
                                         <h3 className="text-base font-semibold text-[#212529] m-0">学生学习情况</h3>

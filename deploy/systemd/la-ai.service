@@ -1,0 +1,23 @@
+[Unit]
+Description=Linear-Algebra AI service (FastAPI / uvicorn)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 改成实际运行用户与部署路径
+User=ubuntu
+WorkingDirectory=/opt/linear-algebra-AI/ai_service
+# LibreOffice(soffice) headless 转 PPT/Word 需要可写的 HOME 放用户配置，否则会卡住/失败。
+# 改成与 User 对应的家目录。
+Environment=HOME=/home/ubuntu
+# 应用自身会加载仓库根目录 .env；WorkingDirectory 必须是 ai_service 以便找到 model_config.json
+ExecStart=/opt/linear-algebra-AI/ai_service/.venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+# 解析大课本时内存占用偏高，给足重启与日志
+StandardOutput=append:/var/log/la-ai.log
+StandardError=append:/var/log/la-ai.log
+
+[Install]
+WantedBy=multi-user.target

@@ -699,7 +699,7 @@ def extract_text_via_ocr(pdf_path, textbook_id=None, max_workers=5, return_metad
     # 如果传了 textbook_id，先更新数据库的 total_pages
     if textbook_id is not None:
         try:
-            conn = psycopg2.connect(dbname="LA-DB", user="postgres", password="password", host="localhost", port="5432")
+            conn = _new_db_conn()
             cur = conn.cursor()
             cur.execute("UPDATE textbooks SET total_pages = %s WHERE id = %s", (total_pages, textbook_id))
             conn.commit()
@@ -722,7 +722,7 @@ def extract_text_via_ocr(pdf_path, textbook_id=None, max_workers=5, return_metad
         print(f"检测到已有解析记录，已完成 {len(completed_pages)} 页，将跳过这些页面...")
         if textbook_id is not None:
              try:
-                 conn = psycopg2.connect(dbname="LA-DB", user="postgres", password="password", host="localhost", port="5432")
+                 conn = _new_db_conn()
                  cur = conn.cursor()
                  cur.execute("UPDATE textbooks SET processed_pages = %s WHERE id = %s", (len(completed_pages), textbook_id))
                  conn.commit()
@@ -807,7 +807,7 @@ def extract_text_via_ocr(pdf_path, textbook_id=None, max_workers=5, return_metad
                     with file_lock:
                         current_processed_pages += 1
                         try:
-                            conn = psycopg2.connect(dbname="LA-DB", user="postgres", password="password", host="localhost", port="5432")
+                            conn = _new_db_conn()
                             cur = conn.cursor()
                             cur.execute("UPDATE textbooks SET processed_pages = %s WHERE id = %s RETURNING status", (current_processed_pages, textbook_id))
                             updated_status = cur.fetchone()[0]
@@ -950,7 +950,10 @@ def ingest_to_db(textbook_name, week_num, chunks, textbook_id=None):
     batch_size = 50
     total_batches = (len(chunks) - 1) // batch_size + 1
 
-    cur.execute("DELETE FROM textbook_chunks WHERE textbook_name = %s", (textbook_name,))
+    if textbook_id is not None:
+        cur.execute("DELETE FROM textbook_chunks WHERE textbook_id = %s OR textbook_name = %s", (textbook_id, textbook_name))
+    else:
+        cur.execute("DELETE FROM textbook_chunks WHERE textbook_name = %s", (textbook_name,))
     conn.commit()
     
     for i in tqdm(range(0, len(chunks), batch_size), total=total_batches, desc="Embedding & 入库"):
@@ -971,8 +974,8 @@ def ingest_to_db(textbook_name, week_num, chunks, textbook_id=None):
         
         for chunk, emb in zip(batch_chunks, embeddings):
             cur.execute(
-                "INSERT INTO textbook_chunks (textbook_name, content, embedding, week_num) VALUES (%s, %s, %s, %s)",
-                (textbook_name, chunk, emb, week_num)
+                "INSERT INTO textbook_chunks (textbook_id, textbook_name, content, embedding, week_num) VALUES (%s, %s, %s, %s, %s)",
+                (textbook_id, textbook_name, chunk, emb, week_num)
             )
         conn.commit()
         

@@ -1,3 +1,9 @@
+-- ============================================================================
+-- ⚠️⚠️⚠️ 危险：本脚本【首行就会清空整库】(DROP SCHEMA public CASCADE)！
+-- 仅用于【空库的一次性初始化】或开发期全量重置。
+-- 【生产环境绝对不要执行本脚本】——会删光课本、题库、用户、对话等全部数据。
+-- 正常部署/更新无需本脚本：表结构由 Go(GORM AutoMigrate) 与 ai_service 启动时自动增量创建。
+-- ============================================================================
 DROP SCHEMA public CASCADE;
 CREATE SCHEMA public;
 
@@ -31,6 +37,7 @@ CREATE TABLE users (
 -- 3. 课本知识库表 (RAG) 
 CREATE TABLE textbook_chunks ( 
     id SERIAL PRIMARY KEY, 
+    textbook_id INTEGER,
     textbook_name VARCHAR(255), 
     content TEXT NOT NULL, 
     embedding vector(1536),                 -- 根据 Qwen 向量维度调整 

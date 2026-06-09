@@ -4,6 +4,7 @@ package favorite
 import (
 	"net/http"
 	"strconv"
+	"workplace/web_service/accesscontrol"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -40,6 +41,24 @@ func (h *FavoriteHandler) Add(c *gin.Context) {
 	var req addFavoriteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "需要 exercise_id"})
+		return
+	}
+	allowedIDs, restricted, _, err := accesscontrol.AllowedTextbookIDsForContext(h.DB, c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取班级教材范围失败"})
+		return
+	}
+	var exerciseCount int64
+	exerciseQuery := h.DB.Table("textbook_exercises").Where("id = ?", req.ExerciseID)
+	if restricted {
+		if len(allowedIDs) == 0 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "该题目不在当前班级资料范围内"})
+			return
+		}
+		exerciseQuery = exerciseQuery.Where("textbook_id IN ?", allowedIDs)
+	}
+	if err := exerciseQuery.Count(&exerciseCount).Error; err != nil || exerciseCount == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "该题目不在当前可访问范围内"})
 		return
 	}
 	fav := FavoriteExercise{UserID: uid, ExerciseID: req.ExerciseID}
@@ -88,16 +107,29 @@ func (h *FavoriteHandler) List(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "未登录"})
 		return
 	}
+	allowedIDs, restricted, _, err := accesscontrol.AllowedTextbookIDsForContext(h.DB, c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取班级教材范围失败"})
+		return
+	}
+	if restricted && len(allowedIDs) == 0 {
+		c.JSON(http.StatusOK, gin.H{"results": []FavoriteItem{}, "count": 0})
+		return
+	}
+
 	var items []FavoriteItem
-	err := h.DB.Raw(`
-		SELECT e.id, e.stem, e.exercise_type, e.question_type, e.has_answer,
-		       e.page_num, e.textbook_name, e.exercise_number,
-		       COALESCE(array_to_string(e.concept_tags, ','), '') AS concept_tags
-		FROM favorite_exercises f
-		JOIN textbook_exercises e ON e.id = f.exercise_id
-		WHERE f.user_id = ?
-		ORDER BY f.created_at DESC
-	`, uid).Scan(&items).Error
+	query := h.DB.Table("favorite_exercises f").
+		Select(`
+			e.id, e.stem, e.exercise_type, e.question_type, e.has_answer,
+			e.page_num, e.textbook_name, e.exercise_number,
+			COALESCE(array_to_string(e.concept_tags, ','), '') AS concept_tags
+		`).
+		Joins("JOIN textbook_exercises e ON e.id = f.exercise_id").
+		Where("f.user_id = ?", uid)
+	if restricted {
+		query = query.Where("e.textbook_id IN ?", allowedIDs)
+	}
+	err = query.Order("f.created_at DESC").Scan(&items).Error
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询收藏失败"})
 		return

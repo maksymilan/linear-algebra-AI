@@ -8,6 +8,10 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 
 
+# 统一环境变量：优先加载仓库根目录 .env（../.env），再兼容旧的 ai_service/.env。
+# load_dotenv 默认 override=False，先加载的根 .env 为准。
+_ROOT_ENV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
+load_dotenv(_ROOT_ENV)
 load_dotenv()
 
 

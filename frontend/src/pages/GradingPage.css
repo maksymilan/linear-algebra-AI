@@ -7,6 +7,66 @@
   padding: 1.15rem;
 }
 
+.grading-assignment-source {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.grading-assignment-source strong,
+.grading-assignment-source span {
+  display: block;
+}
+
+.grading-assignment-source strong {
+  color: #18181b;
+  font-size: 0.86rem;
+}
+
+.grading-assignment-source span {
+  margin-top: 0.25rem;
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+}
+
+.grading-ocr-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--color-surface-muted, #f8f9fa);
+  border: 1px solid var(--color-border);
+  border-radius: 0.6rem;
+  cursor: pointer;
+}
+
+.grading-ocr-mode input[type='checkbox'] {
+  margin-top: 0.15rem;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.grading-ocr-mode strong {
+  display: block;
+  color: #18181b;
+  font-size: 0.84rem;
+}
+
+.grading-ocr-mode small {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
 .grading-workflow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -71,6 +131,12 @@
   outline: 0;
   border-color: #52525b;
   box-shadow: 0 0 0 2px rgba(24, 24, 27, 0.08);
+}
+
+.problem-textarea[readonly] {
+  background: #f4f4f5;
+  color: #52525b;
+  cursor: default;
 }
 
 .workflow-step .file-upload-area {
@@ -138,6 +204,10 @@
 
 @media (max-width: 820px) {
   .grading-workflow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .grading-assignment-source {
     grid-template-columns: minmax(0, 1fr);
   }
 }

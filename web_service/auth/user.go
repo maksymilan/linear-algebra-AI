@@ -22,6 +22,15 @@ type ClassWeeklyMaterial struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// ClassTextbook 表示某个班级当前允许学生访问的教材/题库范围。
+// 教材本身是教师公共资源；班级选择关系决定学生题库与 RAG 的可见边界。
+type ClassTextbook struct {
+	ID         uint      `gorm:"primarykey" json:"id"`
+	ClassID    uint      `gorm:"not null;uniqueIndex:idx_class_textbook;index" json:"class_id"`
+	TextbookID uint      `gorm:"not null;uniqueIndex:idx_class_textbook;index" json:"textbook_id"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
 type User struct {
 	ID           uint      `gorm:"primarykey" json:"id"`
 	Username     string    `gorm:"unique;not null;index" json:"username"`          // 用户名，唯一且加索引

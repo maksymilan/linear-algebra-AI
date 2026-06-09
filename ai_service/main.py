@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from typing import List, Optional
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Query, UploadFile
@@ -13,7 +14,7 @@ from file_utils import extract_text_from_file, file_to_base64
 from llm import chat_completion
 from memory import build_memory_state, build_rag_query
 from prompts import GRADING_FOLLOW_UP_PROMPT, GRADING_SYSTEM_PROMPT, PPT_SUMMARY_PROMPT, SYSTEM_PROMPT
-from question_bank import search_questions
+from question_bank import list_chapters, search_questions
 from rag import retrieve_textbook_context
 from response_utils import extract_model_title, parse_model_json
 from textbook_tasks import process_textbook_task
@@ -209,7 +210,10 @@ async def delete_textbook_api(
     try:
         conn = get_db_conn()
         cur = conn.cursor()
-        cur.execute("DELETE FROM textbook_chunks WHERE textbook_name = %s", (textbook_name,))
+        cur.execute(
+            "DELETE FROM textbook_chunks WHERE textbook_name = %s OR textbook_id = %s",
+            (textbook_name, textbook_id),
+        )
         deleted = cur.rowcount
         cur.execute(
             "DELETE FROM textbook_exercises WHERE textbook_name = %s OR textbook_id = %s",
@@ -238,19 +242,23 @@ class QuestionSearchRequest(BaseModel):
     exercise_type: Optional[str] = None
     has_answer: Optional[bool] = None
     concept_tags: Optional[List[str]] = None
+    textbook_ids: Optional[List[int]] = None
+    chapter: Optional[str] = None
     limit: int = 10
     offset: int = 0
 
 
 @app.post("/api/v1/questions/search")
 async def search_questions_api(req: QuestionSearchRequest):
-    """题库混合检索：语义 + 关键词，支持题型 / 知识点 tag / 有无答案筛选。"""
+    """题库混合检索：语义 + 关键词，支持题型 / 知识点 tag / 有无答案 / 章节筛选。"""
     results = search_questions(
         query=req.query,
         question_type=req.question_type,
         exercise_type=req.exercise_type,
         has_answer=req.has_answer,
         concept_tags=req.concept_tags,
+        textbook_ids=req.textbook_ids,
+        chapter=req.chapter,
         limit=req.limit,
         offset=req.offset,
         return_meta=True,
@@ -258,9 +266,20 @@ async def search_questions_api(req: QuestionSearchRequest):
     return {"count": len(results["results"]), **results}
 
 
+class ChaptersRequest(BaseModel):
+    textbook_ids: Optional[List[int]] = None
+
+
+@app.post("/api/v1/questions/chapters")
+async def question_chapters_api(req: ChaptersRequest):
+    """按教材章节（受控词表 8 章）返回题量统计，供老师分章浏览选题。"""
+    return list_chapters(textbook_ids=req.textbook_ids)
+
+
 @app.post("/api/v1/ocr")
-async def ocr_endpoint(file: UploadFile = File(...)):
-    text = extract_text_from_file(file)
+async def ocr_endpoint(file: UploadFile = File(...), use_vision: bool = Form(False)):
+    # use_vision=True：PDF 逐页渲染成图片走视觉模型 OCR（扫描件/手写）；否则 PyMuPDF 抽文字层
+    text = extract_text_from_file(file, use_vision=use_vision)
     if "Error" in text or "Unsupported" in text:
         raise HTTPException(status_code=400, detail=text)
     return {"text": text}
@@ -300,6 +319,7 @@ async def multimodal_chat(
     history: Optional[str] = Form(None),
     model_id: Optional[str] = Form(None),
     user_id: int = Form(0),
+    textbook_ids: Optional[str] = Form(None),
 ):
     if not prompt and not files:
         raise HTTPException(status_code=400, detail="Prompt or files must be provided.")
@@ -325,10 +345,18 @@ async def multimodal_chat(
     premium_usage_count = enforce_premium_chat_limit(user_id, selected_model_id)
     memory_state = build_memory_state(client, resolve_model("memory"), history)
     rag_query = build_rag_query(current_prompt, memory_state)
+    scoped_textbook_ids = None
+    if textbook_ids is not None:
+        try:
+            parsed_ids = json.loads(textbook_ids)
+            scoped_textbook_ids = [int(item) for item in parsed_ids if int(item) > 0]
+        except Exception:
+            scoped_textbook_ids = []
     retrieved_context, citations = retrieve_textbook_context(
         query=rag_query,
         current_week=current_week,
         k=settings.rag_top_k,
+        textbook_ids=scoped_textbook_ids,
     )
     system_prompt = format_chat_system_prompt(
         memory_context=memory_state.prompt_context,
@@ -458,4 +486,7 @@ async def grading_chat(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # ai_service 无鉴权、仅供本机 Go 调用，默认只监听回环地址，避免被公网直连滥用。
+    # 如需对外（不建议），用 AI_BIND_HOST=0.0.0.0 显式开启。
+    bind_host = os.getenv("AI_BIND_HOST", "127.0.0.1")
+    uvicorn.run(app, host=bind_host, port=8000)

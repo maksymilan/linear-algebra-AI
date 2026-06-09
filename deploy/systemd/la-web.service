@@ -1,0 +1,19 @@
+[Unit]
+Description=Linear-Algebra Web service (Go / Gin)
+After=network-online.target docker.service la-ai.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 改成实际运行用户与部署路径
+User=ubuntu
+WorkingDirectory=/opt/linear-algebra-AI/web_service
+# 应用自身会加载仓库根目录 ../.env；WorkingDirectory 必须是 web_service
+ExecStart=/opt/linear-algebra-AI/web_service/bin/web_service
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/var/log/la-web.log
+StandardError=append:/var/log/la-web.log
+
+[Install]
+WantedBy=multi-user.target

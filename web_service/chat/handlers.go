@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"workplace/web_service/accesscontrol"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -113,8 +114,9 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 
 		// Preload("Messages") 会加载该会话下的所有消息
 		if err := tx.Preload("Messages", func(db *gorm.DB) *gorm.DB {
-			return db.Order("chat_messages.created_at ASC") // 确保历史记录顺序正确
-		}).First(&session, sessionID).Error; err != nil {
+			// created_at 可能因同一轮 user/ai 几乎同时落库而相等，必须再用 id 兜底，保证顺序确定
+			return db.Order("chat_messages.created_at ASC, chat_messages.id ASC")
+		}).Where("user_id = ?", userID).First(&session, sessionID).Error; err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
 			return
@@ -129,6 +131,8 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 	// --- 3. 获取班级进度并准备已学知识总结 ---
 	var learnedSummaries string
 	var currentWeek int
+	var allowedTextbookIDs []uint
+	var restrictTextbooks bool
 	var user auth.User
 	if err := h.DB.First(&user, userID).Error; err == nil && user.ClassID != nil {
 		var class auth.Class
@@ -142,6 +146,14 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 				}
 			}
 		}
+	}
+	if ids, restricted, err := accesscontrol.AllowedTextbookIDsForUser(h.DB, user); err == nil {
+		allowedTextbookIDs = ids
+		restrictTextbooks = restricted
+	} else {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load textbook access scope"})
+		return
 	}
 
 	// --- 4. 准备并发送请求到AI服务 ---
@@ -161,6 +173,13 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 	_ = writer.WriteField("learned_summaries", learnedSummaries)     // 发送已学知识总结
 	_ = writer.WriteField("current_week", strconv.Itoa(currentWeek)) // **新增：RAG 检索用的教学周约束**
 	_ = writer.WriteField("user_id", strconv.Itoa(int(userID)))
+	if restrictTextbooks {
+		if textbookIDsJSON, err := json.Marshal(allowedTextbookIDs); err == nil {
+			_ = writer.WriteField("textbook_ids", string(textbookIDsJSON))
+		} else {
+			_ = writer.WriteField("textbook_ids", "[]")
+		}
+	}
 	if modelID := c.PostForm("model_id"); modelID != "" {
 		_ = writer.WriteField("model_id", modelID)
 	}
@@ -261,7 +280,10 @@ func (h *ChatHandler) SendMessageHandler(c *gin.Context) {
 	tx.Commit()
 
 	// --- 5. 返回最新会话数据给前端 ---
-	h.DB.Preload("Messages").First(&session, session.ID)
+	// 必须显式排序：未指定 order 时 Preload 走堆表顺序，多轮对话会错乱（user/ai 顺序乱跳）
+	h.DB.Preload("Messages", func(db *gorm.DB) *gorm.DB {
+		return db.Order("chat_messages.created_at ASC, chat_messages.id ASC")
+	}).First(&session, session.ID)
 	c.JSON(http.StatusOK, gin.H{"session": session, "ai_response": aiResp})
 }
 
@@ -323,7 +345,7 @@ func (h *ChatHandler) GetMessagesHandler(c *gin.Context) {
 	var messages []ChatMessage
 	err = h.DB.Joins("JOIN chat_sessions ON chat_sessions.id = chat_messages.session_id").
 		Where("chat_sessions.user_id = ? AND chat_messages.session_id = ?", userID, sessionID).
-		Order("chat_messages.created_at asc").
+		Order("chat_messages.created_at asc, chat_messages.id asc").
 		Find(&messages).Error
 
 	if err != nil {

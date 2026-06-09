@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { Bookmark, Check, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Bookmark, Check, ChevronDown, Loader2, Search, SlidersHorizontal, X } from 'lucide-react';
 import QuestionCard from '../components/QuestionCard';
 import Button from '../components/ui/Button';
 import IconButton from '../components/ui/IconButton';
@@ -9,6 +10,7 @@ import Pagination from '../components/ui/Pagination';
 import Select from '../components/ui/Select';
 import { EmptyState, InlineAlert, LoadingState } from '../components/ui/FeedbackState';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../hooks/useAuth';
 import { ALL_CONCEPT_TAGS, CONCEPT_TAXONOMY } from '../utils/conceptsTaxonomy';
 import './QuestionBankPage.css';
 
@@ -112,6 +114,11 @@ const ConceptTagPicker = ({ selectedTags, onChange }) => {
 
 const QuestionBankPage = () => {
   const { showToast } = useToast();
+  const { userRole } = useAuth();
+  const navigate = useNavigate();
+  const [explainingId, setExplainingId] = useState(null);
+  const [answerEditor, setAnswerEditor] = useState(null); // { question, answer, solution }
+  const [savingAnswer, setSavingAnswer] = useState(false);
   const [tab, setTab] = useState('search');
   const [query, setQuery] = useState('');
   const [questionType, setQuestionType] = useState('');
@@ -232,6 +239,48 @@ const QuestionBankPage = () => {
     }
   };
 
+  const handleExplain = async (question) => {
+    if (explainingId) return;
+    setExplainingId(question.id);
+    showToast('正在生成讲解，请稍候…', 'info');
+    try {
+      const response = await axios.post(`/api/questions/${question.id}/explain`);
+      const sessionId = response.data?.chatSessionId;
+      if (!sessionId) throw new Error('no session');
+      navigate(`/chat/${sessionId}`);
+    } catch (requestError) {
+      showToast(requestError.response?.data?.error || 'AI 讲解失败，请稍后再试', 'error');
+    } finally {
+      setExplainingId(null);
+    }
+  };
+
+  const openAnswerEditor = (question) => {
+    setAnswerEditor({ question, answer: question.answer || '', solution: question.solution || '' });
+  };
+
+  const patchQuestion = (id, patch) => {
+    const apply = (list) => list.map((item) => (item.id === id ? { ...item, ...patch } : item));
+    setResults((current) => apply(current));
+    setFavorites((current) => apply(current));
+  };
+
+  const saveAnswer = async () => {
+    if (!answerEditor) return;
+    setSavingAnswer(true);
+    try {
+      const { question, answer, solution } = answerEditor;
+      const response = await axios.put(`/api/teacher/questions/${question.id}/answer`, { answer, solution });
+      patchQuestion(question.id, { answer, solution, has_answer: Boolean(response.data?.has_answer) });
+      showToast('答案已保存', 'success');
+      setAnswerEditor(null);
+    } catch (requestError) {
+      showToast(requestError.response?.data?.error || '保存答案失败', 'error');
+    } finally {
+      setSavingAnswer(false);
+    }
+  };
+
   const showList = tab === 'search' ? results : favorites;
   const totalPages = pagination.total == null ? null : Math.max(1, Math.ceil(pagination.total / PAGE_SIZE));
   const canPrev = tab === 'search' && page > 1 && !loading;
@@ -323,6 +372,10 @@ const QuestionBankPage = () => {
                 isFavorited={favoritedIds.has(question.id)}
                 onToggleFavorite={toggleFavorite}
                 onTagClick={applyTagFilter}
+                userRole={userRole}
+                onExplain={handleExplain}
+                onEditAnswer={openAnswerEditor}
+                explaining={explainingId === question.id}
               />
             ))}
           </div>
@@ -352,6 +405,44 @@ const QuestionBankPage = () => {
             <div className="question-filter-drawer__actions">
               <Button variant="primary" onClick={() => applyFilters()}>应用筛选</Button>
               <Button variant="ghost" onClick={clearFilters}>清空</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {answerEditor && (
+        <div className="question-answer-modal__backdrop" onMouseDown={() => !savingAnswer && setAnswerEditor(null)}>
+          <div className="question-answer-modal" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="question-answer-modal__header">
+              <strong>录入题目答案</strong>
+              <IconButton icon={X} label="关闭" onClick={() => !savingAnswer && setAnswerEditor(null)} />
+            </div>
+            <p className="question-answer-modal__hint">
+              答案与解析将直接展示给本班学生（不经过 AI 生成）。留空则视为暂无答案。
+            </p>
+            <div className="question-answer-modal__field">
+              <span>答案</span>
+              <textarea
+                value={answerEditor.answer}
+                onChange={(event) => setAnswerEditor((current) => ({ ...current, answer: event.target.value }))}
+                placeholder="例如：x₁ = 1, x₂ = -1（支持 Markdown / LaTeX，用 $...$ 包裹公式）"
+                rows={4}
+              />
+            </div>
+            <div className="question-answer-modal__field">
+              <span>解析（可选）</span>
+              <textarea
+                value={answerEditor.solution}
+                onChange={(event) => setAnswerEditor((current) => ({ ...current, solution: event.target.value }))}
+                placeholder="解题步骤、思路说明……"
+                rows={6}
+              />
+            </div>
+            <div className="question-answer-modal__actions">
+              <Button variant="ghost" onClick={() => setAnswerEditor(null)} disabled={savingAnswer}>取消</Button>
+              <Button variant="primary" onClick={saveAnswer} loading={savingAnswer} icon={savingAnswer ? Loader2 : Check}>
+                保存答案
+              </Button>
             </div>
           </div>
         </div>

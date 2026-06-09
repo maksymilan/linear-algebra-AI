@@ -39,10 +39,16 @@ def retrieve_textbook_context(
     current_week: int = 0,
     k: int = settings.rag_top_k,
     include_exercises: bool = False,
+    textbook_ids: Optional[List[int]] = None,
 ) -> Tuple[str, List[dict]]:
     query = (query or "").strip()
     if not query:
         return "", []
+    if textbook_ids is not None:
+        textbook_ids = [int(item) for item in textbook_ids if int(item) > 0]
+        if not textbook_ids:
+            logger.info("RAG skipped because the current user has no accessible textbooks")
+            return "", []
 
     try:
         query_vec = create_embeddings([query])[0]
@@ -53,42 +59,47 @@ def retrieve_textbook_context(
     try:
         conn = get_db_conn()
         cur = conn.cursor()
-        if current_week and current_week > 0:
-            cur.execute(
-                """
-                SELECT textbook_name, content, week_num, embedding <=> %s::vector AS distance
-                FROM textbook_chunks
-                WHERE week_num <= %s
-                ORDER BY embedding <=> %s::vector
-                LIMIT %s
-                """,
-                (query_vec, current_week, query_vec, k),
-            )
-        else:
-            cur.execute(
-                """
-                SELECT textbook_name, content, week_num, embedding <=> %s::vector AS distance
-                FROM textbook_chunks
-                ORDER BY embedding <=> %s::vector
-                LIMIT %s
-                """,
-                (query_vec, query_vec, k),
-            )
+        chunk_filters = ["embedding IS NOT NULL"]
+        chunk_params = []
+        # 注意：不再按 week_num 过滤教材正文检索。
+        # 入库时所有 chunk 的 week_num 恒为 1，该过滤从不生效（伪限制）；
+        # 教学进度的"知识范围软约束"由老师每周课件总结(learned_summaries)在系统提示里承担，
+        # 此处只按班级可见教材(textbook_ids)做硬隔离。current_week 仅保留用于日志。
+        if textbook_ids is not None:
+            chunk_filters.append("textbook_id = ANY(%s)")
+            chunk_params.append(textbook_ids)
+        cur.execute(
+            f"""
+            SELECT textbook_name, content, week_num, embedding <=> %s::vector AS distance
+            FROM textbook_chunks
+            WHERE {" AND ".join(chunk_filters)}
+            ORDER BY embedding <=> %s::vector
+            LIMIT %s
+            """,
+            (query_vec, *chunk_params, query_vec, k),
+        )
         chunk_rows = cur.fetchall()
         # 问答 RAG 默认只用正文 chunks；题目检索交给独立的题库接口，避免题目污染问答上下文。
         exercise_rows = []
         if include_exercises:
+            exercise_filters = [
+                "embedding IS NOT NULL",
+                "(answer != '' OR solution != '')",
+            ]
+            exercise_params = []
+            if textbook_ids is not None:
+                exercise_filters.append("textbook_id = ANY(%s)")
+                exercise_params.append(textbook_ids)
             cur.execute(
-                """
+                f"""
                 SELECT textbook_name, page_num, exercise_number, stem, answer, solution,
                        concepts, source_excerpt, embedding <=> %s::vector AS distance
                 FROM textbook_exercises
-                WHERE embedding IS NOT NULL
-                  AND (answer != '' OR solution != '')
+                WHERE {" AND ".join(exercise_filters)}
                 ORDER BY embedding <=> %s::vector
                 LIMIT %s
                 """,
-                (query_vec, query_vec, k),
+                (query_vec, *exercise_params, query_vec, k),
             )
             exercise_rows = cur.fetchall()
         cur.close()
@@ -171,6 +182,8 @@ def retrieve_textbook_context(
                 "page_num": page_num,
                 "distance": float(distance) if distance is not None else None,
                 "snippet": clean_snippet(content or ""),
+                # 完整片段（仅做空白规整、几乎不截断），供前端「展开全文」用
+                "content": clean_snippet(content or "", max_chars=4000),
                 "exercise_number": candidate.get("exercise_number", ""),
             }
         )

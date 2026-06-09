@@ -12,7 +12,8 @@ const GradingWorkflow = ({
     problemFiles,
     solutionFiles,
     ocrLoading,
-    removeFile
+    removeFile,
+    problemLocked = false
 }) => {
     return (
         <div className="grading-workflow">
@@ -21,35 +22,38 @@ const GradingWorkflow = ({
                     <span className="step-number">1</span>
                     <h2>提供题目</h2>
                 </div>
-                <p>在下方输入或上传图片/PDF识别题目，并进行编辑确认。</p>
+                <p>{problemLocked ? '当前使用老师发布的作业，题目内容不可编辑。' : '在下方输入或上传图片/PDF识别题目，并进行编辑确认。'}</p>
                 <textarea
                     value={problemText}
                     onChange={(e) => setProblemText(e.target.value)}
-                    placeholder="在此处手动输入或编辑识别后的题目..."
+                    placeholder={problemLocked ? '正在读取老师发布的题目...' : '在此处手动输入或编辑识别后的题目...'}
                     rows="8"
                     className="problem-textarea"
+                    readOnly={problemLocked}
                 />
-                <div className="file-upload-area">
-                    <FileUploadButton
-                        id="problem-file-input"
-                        onChange={(e) => handleFileOcr(e.target.files[0], 'problem')}
-                        isLoading={ocrLoading.problem !== null}
-                        accept=".pdf,.jpg,.jpeg,.png"
-                    >
-                        上传文件识别
-                    </FileUploadButton>
-                    <div className="file-status-list">
-                        <AnimatePresence>
-                            {problemFiles.map(file => (
-                                <FileStatus
-                                    key={file.id}
-                                    file={file}
-                                    onRemove={id => removeFile(id, 'problem')}
-                                />
-                            ))}
-                        </AnimatePresence>
+                {!problemLocked && (
+                    <div className="file-upload-area">
+                        <FileUploadButton
+                            id="problem-file-input"
+                            onChange={(e) => handleFileOcr(e.target.files[0], 'problem')}
+                            isLoading={ocrLoading.problem !== null}
+                            accept=".pdf,.jpg,.jpeg,.png"
+                        >
+                            上传文件识别
+                        </FileUploadButton>
+                        <div className="file-status-list">
+                            <AnimatePresence>
+                                {problemFiles.map(file => (
+                                    <FileStatus
+                                        key={file.id}
+                                        file={file}
+                                        onRemove={id => removeFile(id, 'problem')}
+                                    />
+                                ))}
+                            </AnimatePresence>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             <div className="workflow-step">

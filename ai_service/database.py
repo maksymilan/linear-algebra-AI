@@ -20,6 +20,21 @@ def ensure_vector_index() -> None:
     try:
         conn = get_db_conn()
         cur = conn.cursor()
+        cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS textbook_chunks (
+                id SERIAL PRIMARY KEY,
+                textbook_id INTEGER,
+                textbook_name VARCHAR(255),
+                content TEXT NOT NULL,
+                embedding vector(1536),
+                week_num INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        cur.execute("ALTER TABLE textbook_chunks ADD COLUMN IF NOT EXISTS textbook_id INTEGER")
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS textbook_exercises (
@@ -55,6 +70,30 @@ def ensure_vector_index() -> None:
             "CREATE INDEX IF NOT EXISTS idx_textbook_exercises_textbook "
             "ON textbook_exercises (textbook_name, textbook_id)"
         )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_textbook_chunks_textbook "
+            "ON textbook_chunks (textbook_name, textbook_id)"
+        )
+        cur.execute("SELECT to_regclass('public.textbooks')")
+        if cur.fetchone()[0]:
+            cur.execute(
+                """
+                UPDATE textbook_chunks AS chunk
+                SET textbook_id = textbook.id
+                FROM textbooks AS textbook
+                WHERE chunk.textbook_id IS NULL
+                  AND chunk.textbook_name = textbook.name
+                """
+            )
+            cur.execute(
+                """
+                UPDATE textbook_exercises AS exercise
+                SET textbook_id = textbook.id
+                FROM textbooks AS textbook
+                WHERE exercise.textbook_id IS NULL
+                  AND exercise.textbook_name = textbook.name
+                """
+            )
         cur.execute(
             "CREATE INDEX IF NOT EXISTS idx_textbook_exercises_embedding "
             "ON textbook_exercises USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)"

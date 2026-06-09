@@ -77,6 +77,9 @@ const AssignmentListPage = () => {
                   <span>
                     <CalendarDays size={13} aria-hidden="true" />
                     发布于 {new Date(assignment.createdAt).toLocaleDateString('zh-CN')}
+                    {assignment.classId ? ` · 班级 #${assignment.classId}` : ''}
+                    {assignment.problemFileName ? ' · 含附件' : ''}
+                    {assignment.exercises?.length ? ` · ${assignment.exercises.length} 道题库题` : ''}
                   </span>
                 </span>
                 <span className="assignment-row__action">

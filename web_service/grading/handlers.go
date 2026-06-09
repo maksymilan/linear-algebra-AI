@@ -11,9 +11,16 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
+	"workplace/web_service/accesscontrol"
 	"workplace/web_service/aiclient"
-	"workplace/web_service/chat" // 导入chat模型
+	"workplace/web_service/assignment"
+	"workplace/web_service/auth"
+	"workplace/web_service/chat"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -28,10 +35,133 @@ type AIGradeResponse struct {
 	Error      string `json:"error,omitempty"`
 }
 
-// GradeHomeworkHandler 保持不变, 只负责调用AI获取批改结果
+func extractAssignmentFileText(path string, name string) (string, error) {
+	src, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", filepath.Base(name))
+	if err != nil {
+		return "", err
+	}
+	if _, err := io.Copy(part, src); err != nil {
+		return "", err
+	}
+	writer.Close()
+
+	req, err := http.NewRequest("POST", aiclient.URL("/api/v1/ocr"), body)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	client := &http.Client{Timeout: 180 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	responseBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= http.StatusBadRequest {
+		return "", fmt.Errorf("题目附件识别失败: %s", string(responseBody))
+	}
+	var result struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(responseBody, &result); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(result.Text), nil
+}
+
+func (h *GradingHandler) resolveAssignmentProblem(c *gin.Context, assignmentID uint) (string, error) {
+	user, ok, err := accesscontrol.CurrentUser(h.DB, c)
+	if err != nil || !ok || user.Role != "student" {
+		return "", fmt.Errorf("只有学生可以使用已有作业进行自主批改")
+	}
+
+	var item assignment.Assignment
+	if err := h.DB.First(&item, assignmentID).Error; err != nil {
+		return "", fmt.Errorf("作业不存在")
+	}
+	allowed := false
+	if user.ClassID != nil {
+		if item.ClassID != nil {
+			allowed = *item.ClassID == *user.ClassID
+		} else {
+			var cls auth.Class
+			if err := h.DB.First(&cls, *user.ClassID).Error; err == nil {
+				allowed = cls.TeacherID == item.TeacherID
+			}
+		}
+	}
+	if !allowed {
+		return "", fmt.Errorf("无权使用该作业")
+	}
+
+	parts := []string{}
+	if strings.TrimSpace(item.ProblemText) != "" {
+		parts = append(parts, item.ProblemText)
+	}
+
+	var exercises []struct {
+		ExerciseNumber string
+		Stem           string
+	}
+	h.DB.Table("assignment_exercises ae").
+		Select("e.exercise_number, e.stem").
+		Joins("JOIN textbook_exercises e ON e.id = ae.exercise_id").
+		Where("ae.assignment_id = ?", item.ID).
+		Order("ae.position asc, ae.id asc").
+		Scan(&exercises)
+	for i, exercise := range exercises {
+		label := strings.TrimSpace(exercise.ExerciseNumber)
+		if label == "" {
+			label = fmt.Sprintf("题目 %d", i+1)
+		}
+		parts = append(parts, fmt.Sprintf("### %s\n%s", label, exercise.Stem))
+	}
+
+	if item.ProblemFilePath != "" {
+		fileText, fileErr := extractAssignmentFileText(item.ProblemFilePath, item.ProblemFileName)
+		if fileErr != nil && len(parts) == 0 {
+			return "", fileErr
+		}
+		if fileText != "" {
+			parts = append(parts, "### 教师附件题目\n"+fileText)
+		}
+	}
+
+	problemText := strings.TrimSpace(strings.Join(parts, "\n\n"))
+	if problemText == "" {
+		return "", fmt.Errorf("该作业没有可用于批改的题目内容")
+	}
+	return problemText, nil
+}
+
+// GradeHomeworkHandler 调用 AI 获取批改结果；可选 assignmentId 使用老师发布的题目作为可信来源。
 func (h *GradingHandler) GradeHomeworkHandler(c *gin.Context) {
 	problemText := c.PostForm("problemText")
 	solutionText := c.PostForm("solutionText")
+	assignmentIDRaw := strings.TrimSpace(c.PostForm("assignmentId"))
+	var assignmentID uint
+	if assignmentIDRaw != "" {
+		parsedID, err := strconv.Atoi(assignmentIDRaw)
+		if err != nil || parsedID <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "作业 ID 不合法"})
+			return
+		}
+		assignmentID = uint(parsedID)
+		resolvedProblem, err := h.resolveAssignmentProblem(c, assignmentID)
+		if err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		problemText = resolvedProblem
+	}
 
 	if solutionText == "" || problemText == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Problem and solution text are required"})
@@ -59,6 +189,10 @@ func (h *GradingHandler) GradeHomeworkHandler(c *gin.Context) {
 
 	responseBody, _ := io.ReadAll(resp.Body)
 	log.Printf("AI Service Response: %s", string(responseBody))
+	if resp.StatusCode >= http.StatusBadRequest {
+		c.JSON(resp.StatusCode, gin.H{"error": string(responseBody)})
+		return
+	}
 
 	var aiResp AIGradeResponse
 	if err := json.Unmarshal(responseBody, &aiResp); err != nil {
@@ -76,6 +210,7 @@ func (h *GradingHandler) GradeHomeworkHandler(c *gin.Context) {
 		"problemText":  problemText,
 		"solutionText": solutionText,
 		"correction":   aiResp.Correction,
+		"assignmentId": assignmentID,
 	})
 }
 
@@ -202,6 +337,8 @@ func (h *GradingHandler) OcrHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to copy OCR file content"})
 		return
 	}
+	// 透传是否用视觉模型识别 PDF（扫描件/手写选 true，默认走 PyMuPDF 文字层）
+	_ = writer.WriteField("use_vision", c.PostForm("use_vision"))
 	writer.Close()
 
 	proxyReq, _ := http.NewRequest("POST", targetURL, body)

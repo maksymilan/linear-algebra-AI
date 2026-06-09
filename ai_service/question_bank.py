@@ -8,7 +8,7 @@
 import logging
 from typing import List, Optional, Union
 
-from concepts_taxonomy import map_to_standard
+from concepts_taxonomy import CONCEPT_TAXONOMY, map_to_standard
 from database import get_db_conn
 from embedding_utils import create_embeddings
 
@@ -37,10 +37,18 @@ def _normalize_concept_filters(concept_tags):
     return map_to_standard(raw_items, max_tags=max(1, len(raw_items)))
 
 
-def _build_filters(question_type, exercise_type, has_answer, concept_tags):
+def _build_filters(question_type, exercise_type, has_answer, concept_tags, textbook_ids, chapter=None):
     """构建两路共用的 WHERE 附加筛选子句和命名参数。"""
     clauses = []
     params = {}
+    # 章节筛选：题目 concept_tags 与该章的标准 tag 有交集即归入该章（&& 重叠）
+    if chapter:
+        chapter_tags = CONCEPT_TAXONOMY.get(chapter)
+        if chapter_tags:
+            clauses.append("AND concept_tags && %(chapter_tags)s")
+            params["chapter_tags"] = list(chapter_tags)
+        else:
+            clauses.append("AND FALSE")
     if question_type:
         clauses.append("AND question_type = %(question_type)s")
         params["question_type"] = question_type
@@ -57,17 +65,26 @@ def _build_filters(question_type, exercise_type, has_answer, concept_tags):
             params["concept_tags"] = exact_tags
         else:
             clauses.append("AND FALSE")
+    if textbook_ids is not None:
+        normalized_ids = [int(item) for item in textbook_ids if int(item) > 0]
+        if normalized_ids:
+            clauses.append("AND textbook_id = ANY(%(textbook_ids)s)")
+            params["textbook_ids"] = normalized_ids
+        else:
+            clauses.append("AND FALSE")
     return " ".join(clauses), params
 
 
 def _row_to_dict(row):
-    # 本期不下发 answer/solution（答案受控展示属第二期），仅返回 has_answer 标记
+    # answer/solution 由老师自行录入后下发给学生查看（无答案的题目这两个字段为空串）
     return {
         "id": row[0],
         "textbook_name": row[1],
         "page_num": row[2],
         "exercise_number": row[3] or "",
         "stem": row[4] or "",
+        "answer": row[5] or "",
+        "solution": row[6] or "",
         "concept_tags": list(row[7] or []),
         "exercise_type": row[8] or "",
         "question_type": row[9] or "",
@@ -103,6 +120,8 @@ def search_questions(
     exercise_type: Optional[str] = None,
     has_answer: Optional[bool] = None,
     concept_tags: Optional[List[str]] = None,
+    textbook_ids: Optional[List[int]] = None,
+    chapter: Optional[str] = None,
     limit: int = 10,
     offset: int = 0,
     return_meta: bool = False,
@@ -110,13 +129,22 @@ def search_questions(
     query = (query or "").strip()
     limit = max(1, min(int(limit or 10), 50))
     offset = max(0, int(offset or 0))
-    filter_sql, filter_params = _build_filters(question_type, exercise_type, has_answer, concept_tags)
+    filter_sql, filter_params = _build_filters(
+        question_type,
+        exercise_type,
+        has_answer,
+        concept_tags,
+        textbook_ids,
+        chapter,
+    )
 
     try:
         conn = get_db_conn()
         cur = conn.cursor()
     except Exception as exc:
         logger.warning("题库检索：数据库连接失败: %s", exc)
+        if return_meta:
+            return {"results": [], "total": 0, "limit": limit, "offset": offset, "has_more": False}
         return []
 
     try:
@@ -184,7 +212,62 @@ def search_questions(
         return results
     except Exception as exc:
         logger.warning("题库检索失败: %s", exc)
+        if return_meta:
+            return {"results": [], "total": 0, "limit": limit, "offset": offset, "has_more": False}
         return []
+    finally:
+        cur.close()
+        conn.close()
+
+
+def list_chapters(textbook_ids: Optional[List[int]] = None) -> dict:
+    """按教材章节（受控词表的 8 章）统计题量，供老师选题时分章浏览。
+
+    某题的 concept_tags 与某章 tag 有交集即计入该章（一题可同时归入多章）。
+    textbook_ids 受限时只统计这些教材；为空列表表示无可见教材，全部计 0。
+    """
+    chapters = [{"chapter": c, "tags": list(t), "count": 0} for c, t in CONCEPT_TAXONOMY.items()]
+    empty = {"chapters": chapters, "total": 0, "uncategorized": 0}
+
+    scope_sql = ""
+    scope_params: dict = {}
+    if textbook_ids is not None:
+        ids = [int(i) for i in textbook_ids if int(i) > 0]
+        if not ids:
+            return empty
+        scope_sql = " AND textbook_id = ANY(%(ids)s)"
+        scope_params["ids"] = ids
+
+    try:
+        conn = get_db_conn()
+        cur = conn.cursor()
+    except Exception as exc:
+        logger.warning("题库章节统计：数据库连接失败: %s", exc)
+        return empty
+
+    try:
+        for item in chapters:
+            cur.execute(
+                f"SELECT COUNT(*) FROM textbook_exercises WHERE concept_tags && %(tags)s{scope_sql}",
+                {**scope_params, "tags": item["tags"]},
+            )
+            item["count"] = int(cur.fetchone()[0] or 0)
+        cur.execute(
+            f"SELECT COUNT(*) FROM textbook_exercises WHERE TRUE{scope_sql}",
+            scope_params,
+        )
+        total = int(cur.fetchone()[0] or 0)
+        # 没有任何受控 tag 命中的题（未归类），供前端单独展示
+        cur.execute(
+            f"SELECT COUNT(*) FROM textbook_exercises "
+            f"WHERE (concept_tags IS NULL OR concept_tags = '{{}}'){scope_sql}",
+            scope_params,
+        )
+        uncategorized = int(cur.fetchone()[0] or 0)
+        return {"chapters": chapters, "total": total, "uncategorized": uncategorized}
+    except Exception as exc:
+        logger.warning("题库章节统计失败: %s", exc)
+        return empty
     finally:
         cur.close()
         conn.close()

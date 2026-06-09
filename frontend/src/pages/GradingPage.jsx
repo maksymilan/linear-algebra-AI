@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion as _motion } from 'framer-motion';
@@ -8,7 +8,9 @@ import AiResponse from '../components/AiResponse';
 import GradingWorkflow from '../components/GradingWorkflow';
 import Button from '../components/ui/Button';
 import PageHeader from '../components/ui/PageHeader';
+import Select from '../components/ui/Select';
 import { InlineAlert } from '../components/ui/FeedbackState';
+import autoWrapMath from '../utils/autoWrapMath';
 import './GradingPage.css';
 
 const GradingPage = () => {
@@ -21,8 +23,56 @@ const GradingPage = () => {
   const [error, setError] = useState('');
   const [gradeResult, setGradeResult] = useState(null);
   const [followUpQuestion, setFollowUpQuestion] = useState('');
-  const { token } = useAuth();
+  const [assignments, setAssignments] = useState([]);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState('');
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [useVisionOcr, setUseVisionOcr] = useState(false);
+  const { token, userRole } = useAuth();
   const navigate = useNavigate();
+  const selectedAssignment = useMemo(
+    () => assignments.find((item) => String(item.id) === selectedAssignmentId),
+    [assignments, selectedAssignmentId]
+  );
+  const assignmentOptions = [
+    { value: '', label: '自定义题目' },
+    ...assignments.map((item) => ({ value: String(item.id), label: item.title })),
+  ];
+
+  useEffect(() => {
+    if (userRole !== 'student') return;
+    const loadAssignments = async () => {
+      setLoadingAssignments(true);
+      try {
+        const response = await axios.get('/api/student/assignments');
+        setAssignments(Array.isArray(response.data) ? response.data : []);
+      } catch (requestError) {
+        setError(requestError.response?.data?.error || '获取课程作业失败');
+      } finally {
+        setLoadingAssignments(false);
+      }
+    };
+    loadAssignments();
+  }, [userRole]);
+
+  useEffect(() => {
+    setGradeResult(null);
+    setProblemFiles([]);
+    if (!selectedAssignment) {
+      setProblemText('');
+      return;
+    }
+    const parts = [];
+    if (selectedAssignment.problemText?.trim()) {
+      parts.push(selectedAssignment.problemText.trim());
+    }
+    (selectedAssignment.exercises || []).forEach((exercise, index) => {
+      parts.push(`### ${exercise.exercise_number || `题目 ${index + 1}`}\n${autoWrapMath(exercise.stem || '')}`);
+    });
+    if (selectedAssignment.problemFileName) {
+      parts.push(`### 教师题目附件\n${selectedAssignment.problemFileName}\n\n批改时将由服务端读取该附件内容。`);
+    }
+    setProblemText(parts.join('\n\n'));
+  }, [selectedAssignment]);
 
   const handleFileOcr = async (file, type) => {
     if (!file) return;
@@ -36,6 +86,7 @@ const GradingPage = () => {
     setError('');
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('use_vision', useVisionOcr ? 'true' : 'false');
 
     try {
       const response = await axios.post('/api/grading/ocr', formData, {
@@ -53,8 +104,8 @@ const GradingPage = () => {
   };
 
   const handleGrade = async () => {
-    if (!problemText.trim() || !solutionText.trim()) {
-      setError('请完整提供题目和解答内容');
+    if ((!selectedAssignmentId && !problemText.trim()) || !solutionText.trim()) {
+      setError(selectedAssignmentId ? '请提供解答内容' : '请完整提供题目和解答内容');
       return;
     }
 
@@ -64,6 +115,7 @@ const GradingPage = () => {
     const formData = new FormData();
     formData.append('problemText', problemText);
     formData.append('solutionText', solutionText);
+    if (selectedAssignmentId) formData.append('assignmentId', selectedAssignmentId);
 
     try {
       const response = await axios.post('/api/grading/upload', formData, {
@@ -116,12 +168,38 @@ const GradingPage = () => {
         <PageHeader
           eyebrow="学习工具"
           title="自主批改"
-          description="输入或识别题目与解答，获得逐步批改意见，并可继续发起答疑。"
+          description="可直接选择老师发布的作业，只提交自己的解答，也可以使用自定义题目。"
         />
 
         {error && <div className="grading-page__alert"><InlineAlert>{error}</InlineAlert></div>}
 
         <section className="grading-editor ui-card">
+          {userRole === 'student' && (
+            <div className="grading-assignment-source">
+              <div>
+                <strong>题目来源</strong>
+                <span>选择已有作业后，题目以老师发布的内容为准。</span>
+              </div>
+              <Select
+                value={selectedAssignmentId}
+                options={assignmentOptions}
+                ariaLabel="题目来源"
+                placeholder={loadingAssignments ? '正在加载作业' : '选择题目来源'}
+                onChange={setSelectedAssignmentId}
+              />
+            </div>
+          )}
+          <label className="grading-ocr-mode">
+            <input
+              type="checkbox"
+              checked={useVisionOcr}
+              onChange={(event) => setUseVisionOcr(event.target.checked)}
+            />
+            <span>
+              <strong>用 AI 识别 PDF（扫描件 / 手写 / 图片型 PDF）</strong>
+              <small>普通电子版 PDF 不勾更快（直接读取文字层）；扫描件或拍照转的 PDF 没有文字层，请勾选让模型逐页识别。图片始终走 AI 识别。</small>
+            </span>
+          </label>
           <GradingWorkflow {...{
             problemText,
             setProblemText,
@@ -132,6 +210,7 @@ const GradingPage = () => {
             solutionFiles,
             ocrLoading,
             removeFile,
+            problemLocked: Boolean(selectedAssignmentId),
           }} />
 
           <AnimatePresence>

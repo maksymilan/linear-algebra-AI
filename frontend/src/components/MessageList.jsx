@@ -49,6 +49,51 @@ const formatDuration = (value) => {
     return `${minutes} 分 ${remain} 秒`;
 };
 
+// 单条引用：默认显示预览片段，可「展开全文」看完整内容
+const CitationItem = ({ c, index }) => {
+    const [expanded, setExpanded] = useState(false);
+    const loc = [
+        c?.week_num != null ? `第 ${c.week_num} 周` : null,
+        c?.page_num != null ? `第 ${c.page_num} 页` : null,
+    ].filter(Boolean).join(' · ');
+    const sourceLabel = c?.source_type === 'exercise' ? '题目' : '教材片段';
+    const preview = c?.snippet || '';
+    const full = c?.content || preview;
+    const hasMore = full.length > preview.length + 4;
+    const shown = expanded ? full : preview;
+
+    return (
+        <li className="px-3 py-2.5 text-xs">
+            <div className="flex items-center justify-between gap-2">
+                <div className="font-medium text-[#212529] truncate">
+                    [{c?.index ?? index + 1}] {sourceLabel} · 《{c?.textbook_name || '未知教材'}》
+                    {c?.exercise_number ? ` · ${c.exercise_number}` : ''}
+                </div>
+                {typeof c?.distance === 'number' && (
+                    <span className="shrink-0 font-mono text-[10px] text-[#868E96]">
+                        距离 {c.distance.toFixed(3)}
+                    </span>
+                )}
+            </div>
+            {loc && <div className="text-[#868E96] mt-0.5">{loc}</div>}
+            {shown && (
+                <div className="mt-1.5 text-[#495057] leading-relaxed text-xs">
+                    <AiResponse content={shown} />
+                </div>
+            )}
+            {hasMore && (
+                <button
+                    type="button"
+                    onClick={() => setExpanded((v) => !v)}
+                    className="mt-1 text-[11px] text-[#212529] hover:underline"
+                >
+                    {expanded ? '收起' : '展开全文'}
+                </button>
+            )}
+        </li>
+    );
+};
+
 // 参考教材折叠卡片：展示 RAG 检索到的片段出处
 const CitationCard = ({ citations }) => {
     const [open, setOpen] = useState(false);
@@ -80,36 +125,9 @@ const CitationCard = ({ citations }) => {
 
             {open && (
                 <ul className="divide-y divide-[#E9ECEF]">
-                    {citations.map((c, i) => {
-                        const loc = [
-                            c?.week_num != null ? `第 ${c.week_num} 周` : null,
-                            c?.page_num != null ? `第 ${c.page_num} 页` : null,
-                        ].filter(Boolean).join(' · ');
-                        const sourceLabel = c?.source_type === 'exercise' ? '题目' : '教材片段';
-                        return (
-                            <li key={i} className="px-3 py-2.5 text-xs">
-                                <div className="flex items-center justify-between gap-2">
-                                    <div className="font-medium text-[#212529] truncate">
-                                        [{c?.index ?? i + 1}] {sourceLabel} · 《{c?.textbook_name || '未知教材'}》
-                                        {c?.exercise_number ? ` · ${c.exercise_number}` : ''}
-                                    </div>
-                                    {typeof c?.distance === 'number' && (
-                                        <span className="shrink-0 font-mono text-[10px] text-[#868E96]">
-                                            距离 {c.distance.toFixed(3)}
-                                        </span>
-                                    )}
-                                </div>
-                                {loc && (
-                                    <div className="text-[#868E96] mt-0.5">{loc}</div>
-                                )}
-                                {c?.snippet && (
-                                    <div className="mt-1.5 text-[#495057] leading-relaxed text-xs">
-                                        <AiResponse content={autoWrapMath(c.snippet)} />
-                                    </div>
-                                )}
-                            </li>
-                        );
-                    })}
+                    {citations.map((c, i) => (
+                        <CitationItem key={i} c={c} index={i} />
+                    ))}
                 </ul>
             )}
         </div>
